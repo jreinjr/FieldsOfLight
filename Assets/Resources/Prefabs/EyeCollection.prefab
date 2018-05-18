@@ -327,6 +327,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c7b619c1e10a1a445aa686d73ad260e7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _EffectShader: {fileID: 0}
   rgb_Tex: {fileID: 2800000, guid: 23744d58fadd0b8458f43d5953e9b35c, type: 3}
   z_Tex: {fileID: 2800000, guid: ebf0bae78a396234b8d1d86d8d5009d0, type: 3}
 --- !u!114 &114411294830473190
@@ -369,6 +370,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9073739fe5ec32a49957cea242b31ee2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  eyes: []
   eyeCount: 1
   rootTextureFolder: {fileID: 102900000, guid: 2de6b67f0ad86384eba859665954d998, type: 3}
   textureNamingPrefix: Eye

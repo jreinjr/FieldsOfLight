@@ -6,12 +6,30 @@ using UnityEngine;
 [ExecuteInEditMode]
 public class SurfaceRaytrace : MonoBehaviour {
 
+    [SerializeField]
+    private Shader _EffectShader;
+
+    public Material EffectMaterial
+    {
+        get
+        {
+            if (!_EffectMaterial && _EffectShader)
+            {
+                _EffectMaterial = new Material(_EffectShader);
+                _EffectMaterial.hideFlags = HideFlags.HideAndDontSave;
+            }
+
+            return _EffectMaterial;
+        }
+    }
+    private Material _EffectMaterial;
+
+
     EyeCollection eyeCollection;
 
     ProceduralFrustum frustrum;
     Matrix4x4 frustrumMVP;
     Matrix4x4 frustrumPerspective;
-    Material material;
     public Texture rgb_Tex;
     public Texture z_Tex;
 
@@ -20,9 +38,7 @@ public class SurfaceRaytrace : MonoBehaviour {
         frustrum = GetComponent<ProceduralFrustum>();
         frustrumPerspective = new Matrix4x4();
         eyeCollection = transform.parent.GetComponentInParent<EyeCollection>();
-        
-        material = GetComponent<Renderer>().sharedMaterial;
-
+        GetComponent<Renderer>().material = EffectMaterial;
     }
 
     public void RefreshTextures()
@@ -43,9 +59,10 @@ public class SurfaceRaytrace : MonoBehaviour {
             RefreshTextures();
         }
 
-        material.SetFloat("_farClip", frustrum.farClip);
-        material.SetFloat("_nearClip", frustrum.nearClip);
-        material.SetTexture("_MainTex", rgb_Tex);
-        material.SetTexture("_zTex", z_Tex);
+        EffectMaterial.SetFloat("_farClip", frustrum.farClip);
+        EffectMaterial.SetFloat("_nearClip", frustrum.nearClip);
+        EffectMaterial.SetTexture("_MainTex", rgb_Tex);
+        EffectMaterial.SetTexture("_zTex", z_Tex);
+        EffectMaterial.SetVector("_eyeFwd", transform.forward);
     }
 }

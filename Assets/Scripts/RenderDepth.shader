@@ -50,8 +50,8 @@ Shader "Custom/RenderDepth"
 	fixed4 frag(output o) : COLOR
 	{
 		float depth = UNITY_SAMPLE_DEPTH(tex2D(_CameraDepthTexture, o.uv));
-		float dOrigin = distance(o.uv, float2(0.5, 0.5));
-		float scaleFactor = sqrt(pow(dOrigin, 2) + pow(1, 2));
+		//float dOrigin = distance(o.uv, float2(0.5, 0.5));
+		//float scaleFactor = sqrt(pow(dOrigin, 2) + pow(1, 2));
 		//depth = depth * scaleFactor;
 		return fixed4(depth, 0,0,1);
 	}

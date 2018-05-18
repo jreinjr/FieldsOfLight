@@ -7,19 +7,22 @@
 	}
 	SubShader
 	{
-		Tags {"Queue" = "Transparent" "RenderType"="Transparent" }
+		Tags {"Queue" = "Transparent" "RenderType" = "Transparent" }
 		LOD 100
+		
+		GrabPass{}
 
 		Pass
 		{
 			Blend SrcAlpha OneMinusSrcAlpha
+			BlendOp Add
+			ZWrite Off
+
 
 			CGPROGRAM
 			#pragma vertex vert
 			#pragma fragment frag
-			// make fog work
-			#pragma multi_compile_fog
-			
+		
 			#include "UnityCG.cginc"
 
 			struct appdata
@@ -36,24 +39,29 @@
 				float4 vertex_OS: TEXCOORD2;
 				float4 color : COLOR;
 				float4 vertex : SV_POSITION;
+				float4 grabPos : TEXCOORD3;
 			};
 
 			sampler2D _MainTex;
 			float4 _MainTex_ST;
 			sampler2D _zTex;
+			sampler2D _GrabTexture;
 			float4x4 _eyePerspective;
 			uniform float _farClip;
 			uniform float _nearClip;
 			uniform float _test;
+			uniform float4 _eyeFwd;
 			
 			v2f vert (appdata v)
 			{
 				v2f o;
 				o.vertex = UnityObjectToClipPos(v.vertex);
 				o.uv = TRANSFORM_TEX(v.uv, _MainTex);
+				o.grabPos = ComputeGrabScreenPos(o.vertex);
 				o.vertex_WS = mul(unity_ObjectToWorld, v.vertex);
 				o.vertex_OS = v.vertex;
 				o.color = v.color;
+			
 				return o;
 			}
 			float3 convertOStoCS(float3 OS) {
@@ -73,6 +81,8 @@
 				*/
 			}
 
+			//TODO: For some reason this is only working properly
+			// when nearClip >= 1
 			float LinearEyeDepthFromFile(float d) {
 
 				float x = -1 + _farClip / _nearClip;
@@ -88,14 +98,14 @@
 				return LinearEyeDepthFromFile(pow((z), 2.22));
 			}
 
-			fixed4 frag (v2f i) : SV_Target
+			fixed4 frag (v2f input) : SV_Target
 			{
 				// Fragment worldspace coord
-				float3 frag_WS = i.vertex_WS.xyz;
+				float3 frag_WS = input.vertex_WS.xyz;
 				// Worldspace ray from camera to fragment
 				float3 ray_WS = normalize(frag_WS - _WorldSpaceCameraPos);
 				// Fragment objectspace coord
-				float3 frag_OS = i.vertex_OS;
+				float3 frag_OS = input.vertex_OS;
 				// Objectspace ray from camera to fragment
 				float3 ray_OS = mul(unity_WorldToObject, ray_WS);
 				
@@ -103,15 +113,15 @@
 				
 				
 				float stored_depth;
-				const uint max_steps = 200;
-				const float orig_step_size = 0.032;
+				const uint max_steps = 50;
+				const float orig_step_size = 0.128;
 				float step_size = orig_step_size;
-				const float hitTolerance = 0.016;
-				const float refineTolerance = 0.016;
+				const float hitTolerance = 0.064;
+				const float refineTolerance = 0.064;
 
 				float4 hitCol = float4(0,0,0,0);
 				
-				float3 hit_OS = i.vertex_OS;
+				float3 hit_OS = input.vertex_OS;
 				float3 hit_CS = convertOStoCS(hit_OS);
 
 				float3 hit;
@@ -145,7 +155,24 @@
 				
 				fixed4 col = fixed4(hitCol);
 
-				fixed4 debug = fixed4(convertOStoCS(frag_OS), 1);
+				float fovWeight = clamp(dot(ray_WS, _eyeFwd), 0.000001f, 1);
+
+				col.a *= fovWeight;
+
+				fixed4 bgColor = tex2Dproj(_GrabTexture, input.grabPos);
+				float bgA = bgColor.a;
+				float colA = col.a;
+
+				float sumA = bgA + colA + .0000001f;
+				bgA /= sumA;
+				colA /= sumA;
+
+				col.rgb *= colA;
+				bgColor.rgb *= bgA;
+
+				col.rgb += bgColor.rgb;
+				
+				fixed4 debug = fixed4(bgA, colA, 0, 1);
 				return col;
 			}
 

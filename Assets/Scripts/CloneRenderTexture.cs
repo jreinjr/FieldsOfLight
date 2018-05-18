@@ -8,6 +8,8 @@ public class CloneRenderTexture : MonoBehaviour {
     public RenderTexture renderTextureToClone;
     public Camera renderCamera;
 
+  
+
 	// Use this for initialization
 	void OnValidate () {
         renderCamera = GetComponent<Camera>();

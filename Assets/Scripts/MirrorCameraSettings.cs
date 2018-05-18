@@ -26,6 +26,10 @@ public class MirrorCameraSettings : MonoBehaviour {
 
     private void Update()
     {
+        myCamera.transform.position = cameraToMirror.transform.position;
+        myCamera.transform.rotation = cameraToMirror.transform.rotation;
+        myCamera.transform.localScale = cameraToMirror.transform.localScale;
+
         myCamera.cullingMask = cameraToMirror.cullingMask;
         myCamera.fieldOfView = cameraToMirror.fieldOfView;
         myCamera.nearClipPlane = cameraToMirror.nearClipPlane;

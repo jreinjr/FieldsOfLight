@@ -7,7 +7,7 @@ using UnityEditor;
 [ExecuteInEditMode]
 public class EyeCollection : MonoBehaviour {
 
-    List<Eye> eyes;
+    public List<Eye> eyes;
     public int eyeCount;
     public DefaultAsset rootTextureFolder;
     public string textureNamingPrefix;

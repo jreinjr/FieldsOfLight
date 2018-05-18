@@ -48,6 +48,6 @@ public class Eye: MonoBehaviour {
 
     public void RefreshTextures()
     {
-        transform.GetComponentInChildren<SurfaceRaytrace>().RefreshTextures();
+        transform.Find("Projector").GetComponent<SurfaceRaytrace>().RefreshTextures();
     }
 }
