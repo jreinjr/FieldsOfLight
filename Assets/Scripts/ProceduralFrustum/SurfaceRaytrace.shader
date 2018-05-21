@@ -10,7 +10,7 @@
 		Tags {"Queue" = "Transparent" "RenderType" = "Transparent" }
 		LOD 100
 		
-		GrabPass{}
+		//GrabPass{}
 
 		Pass
 		{
@@ -39,13 +39,13 @@
 				float4 vertex_OS: TEXCOORD2;
 				float4 color : COLOR;
 				float4 vertex : SV_POSITION;
-				float4 grabPos : TEXCOORD3;
+				//float4 grabPos : TEXCOORD3;
 			};
 
 			sampler2D _MainTex;
 			float4 _MainTex_ST;
 			sampler2D _zTex;
-			sampler2D _GrabTexture;
+			//sampler2D _GrabTexture;
 			float4x4 _eyePerspective;
 			uniform float _farClip;
 			uniform float _nearClip;
@@ -57,7 +57,7 @@
 				v2f o;
 				o.vertex = UnityObjectToClipPos(v.vertex);
 				o.uv = TRANSFORM_TEX(v.uv, _MainTex);
-				o.grabPos = ComputeGrabScreenPos(o.vertex);
+				//o.grabPos = ComputeGrabScreenPos(o.vertex);
 				o.vertex_WS = mul(unity_ObjectToWorld, v.vertex);
 				o.vertex_OS = v.vertex;
 				o.color = v.color;
@@ -114,7 +114,7 @@
 				
 				float stored_depth;
 				const uint max_steps = 50;
-				const float orig_step_size = 0.128;
+				const float orig_step_size = .1;
 				float step_size = orig_step_size;
 				const float hitTolerance = 0.064;
 				const float refineTolerance = 0.064;
@@ -125,14 +125,17 @@
 				float3 hit_CS = convertOStoCS(hit_OS);
 
 				float3 hit;
+				float stepsTaken = 0;
 				[loop]
 				for (uint i = 0; i < max_steps; i++)
 				{
-
-	
 					// Almost working
 					hit_CS = convertOStoCS(hit_OS);
 					
+					if (hit_CS.x > 1 || hit_CS.y > 1 || hit_CS.x < -0.1 || hit_CS.y < -0.1 || hit_CS.z > 10) {
+						break;
+					}
+
 					stored_depth = zConvert(tex2D(_zTex, hit_CS.xy).r);
 					if (hit_CS.z >= (stored_depth - hitTolerance) && hit_CS.z <= (stored_depth + hitTolerance)) {
 						hitCol.xyz = tex2D(_MainTex, hit_CS.xy);
@@ -150,11 +153,11 @@
 						hit_OS += ray_OS * step_size;
 					}
 					
-
+					stepsTaken += (float)i / (float)max_steps;
 				}
 				
 				fixed4 col = fixed4(hitCol);
-
+				/*
 				float fovWeight = clamp(dot(ray_WS, _eyeFwd), 0.000001f, 1);
 
 				col.a *= fovWeight;
@@ -171,8 +174,8 @@
 				bgColor.rgb *= bgA;
 
 				col.rgb += bgColor.rgb;
-				
-				fixed4 debug = fixed4(bgA, colA, 0, 1);
+				*/
+				fixed4 debug = fixed4(stepsTaken, 0, 0, 1);
 				return col;
 			}
 

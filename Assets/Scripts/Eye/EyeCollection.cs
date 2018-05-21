@@ -18,7 +18,6 @@ public class EyeCollection : MonoBehaviour {
     {
         eyes = new List<Eye>();
         CheckEyeCount();
-
     }
 
     private void Update()
@@ -27,6 +26,21 @@ public class EyeCollection : MonoBehaviour {
         {
             CheckEyeCount();
         }
+        else
+        {
+            //foreach (Eye e in eyes)
+            //{
+            //    if (Vector3.Dot(Camera.main.transform.forward, e.transform.forward) <= 0)
+            //    {
+            //        e.gameObject.SetActive(false);
+            //    }
+            //    else
+            //    {
+            //        e.gameObject.SetActive(true);
+            //    }
+            //}
+        }
+        
     }
 
     private void CheckEyeCount()
