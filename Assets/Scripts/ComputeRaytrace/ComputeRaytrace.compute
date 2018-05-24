@@ -2,29 +2,38 @@
 #pragma kernel FindIntersection
 #define INF 1.0e38
 
-float3 camPos;
-float3 camFwd;
-float3 camRgt;
-float3 camUp;
-
 /// Top Left corner:     row=0
 /// Top Right corner:    row=1
 /// Bottom Right corner: row=2
 /// Bottom Left corner:  row=3
 float4x4 camCorners;
 
-float2 resolution;
+float3 camPos;
+float _nearClip;
+float _farClip;
 
-bool frustum(float3 org, float3 dir, float apex, out float near, out float far);
+
 
 // Create a RenderTexture with enableRandomWrite flag and set it
 // with cs.SetTexture
+RWTexture2D<float4> Intersection;
 RWTexture2D<float4> Result;
+Texture2D<float4> _rgbTex;
+Texture2D<float4> _zTex;
+SamplerState sampler_rgbTex;
+SamplerState sampler_zTex;
+
+float2 resolution;
+
+bool frustum(float3 org, float3 dir, float nearClip, float farClip, out float near, out float far);
+float zConvert(float z);
+float LinearEyeDepthFromFile(float d);
+float3 convertOStoCS(float3 OS);
 
 [numthreads(8,8,1)]
 void FindIntersection(uint3 id : SV_DispatchThreadID)
 {
-
+	Intersection[id.xy] = float4(0, 0, 0, 0);
 	// camera
 	float2 uv = id.xy / resolution.xy;
 	float3 camro = camPos;
@@ -35,36 +44,36 @@ void FindIntersection(uint3 id : SV_DispatchThreadID)
 	float far;
 	float near;
 
-	if (frustum(camro, ray, -0.5, near, far)) {
+	if (frustum(camro, ray, _nearClip, _farClip, near, far)) {
 		fragColor = float4(camro + ray * near, 1);
 	}
-
-	Result[id.xy] = float4(fragColor);
+	Intersection[id.xy] = float4(fragColor);
 }
 
-
-bool frustum(float3 org, float3 dir, float apex, out float near, out float far) {
-	float2 dirf = float2(0.5 - apex, 0.5);
+bool frustum(float3 org, float3 dir, float nearClip, float farClip, out float near, out float far) {
+	float2 dirf = float2(0.5, 0.5);
 	float3 tbot, ttop;
 
 	// intersection with near and far planes
 	float invdirz = 1.0 / dir.z;
-	tbot.z = invdirz * (.2 - org.z);
-	ttop.z = invdirz * (1.5 - org.z);
+	tbot.z = invdirz * (nearClip - org.z);
+	ttop.z = invdirz * (farClip - org.z);
 
-	float temp = dirf.y * (org.z - apex);
+	float zSize = 0.5;
+	float ySize = 0.5;
+	float xSize = 0.5;
 
 	// intersection with inclined planes on y
-	tbot.y = (-temp - dirf.x * org.y) / (dirf.x * dir.y + dirf.y * dir.z);
-	ttop.y = (temp - dirf.x * org.y) / (dirf.x * dir.y - dirf.y * dir.z);
+	tbot.y = (-zSize * org.z - ySize * org.y) / (ySize * dir.y + zSize * dir.z);
+	ttop.y = (zSize * org.z - ySize * org.y) / (ySize * dir.y - zSize * dir.z);
 
 	// intersection with inclined planes on x
-	tbot.x = (-temp - dirf.x * org.x) / (dirf.x * dir.x + dirf.y * dir.z);
-	ttop.x = (temp - dirf.x * org.x) / (dirf.x * dir.x - dirf.y * dir.z);
+	tbot.x = (-zSize * org.z - xSize * org.x) / (xSize * dir.x + zSize * dir.z);
+	ttop.x = (zSize * org.z - xSize * org.x) / (xSize * dir.x - zSize * dir.z);
 
 	// if intersecting behind the apex, set t to ray's end
 	float4 tempt = float4(tbot.xy, ttop.xy);
-	tempt = lerp(tempt, INF * sign(dir.zzzz), step(org.zzzz + tempt * dir.zzzz, apex.xxxx));
+	tempt = lerp(tempt, INF * sign(dir.zzzz), step(org.zzzz + tempt * dir.zzzz, 0));
 	tbot.xy = tempt.xy;
 	ttop.xy = tempt.zw;
 
@@ -82,3 +91,112 @@ bool frustum(float3 org, float3 dir, float apex, out float near, out float far) 
 	return near < far && far > 0.0;
 }
 
+//float4 fragColor = Intersection[groupID.xy];
+//fragColor.xy = fragColor.xy / fragColor.z;
+//fragColor.xy = (fragColor.xy + 1) / 2;
+//
+//fragColor.z = ((fragColor.z) - _nearClip) / (_farClip - _nearClip);
+
+
+groupshared uint t;
+groupshared uint d[128];
+#pragma kernel Raymarch
+[numthreads(40,24,1)]
+void Raymarch(uint3 groupID: SV_GroupID, uint3 groupThreadID: SV_GroupThreadID) {
+	t = 10000; // Initialize groupshared memory
+	d[groupThreadID.x] = 10000;
+	Result[groupID.xy] = float4(0, 0, 0, 0); // Initialize no hit
+	const float hitTolerance = 0.0128;
+	const float refineTolerance = 0.128;
+	const float step_size = 0.1;
+	uint myStep = groupThreadID.x;
+	float3 hit_OS = Intersection[groupID.xy];
+	float3 ray_OS = normalize(hit_OS - camPos) * Intersection[groupID.xy].w;
+
+	float3 march_OS = hit_OS;
+	march_OS += ray_OS * myStep * step_size * hit_OS.z;
+	float3 march_CS = convertOStoCS(march_OS);
+
+	//float stored_depth = zConvert(_zTex[march_CS.xy * resolution.xy].r);
+
+	float stored_depth = zConvert(_zTex.SampleLevel(sampler_zTex, march_CS.xy, 0).r);
+
+	// Manually unrolling the conditional was not any faster.
+	//float meetsLowerBound = step(stored_depth - hitTolerance, march_CS.z);
+	//float meetsUpperBound = step(march_CS.z, stored_depth + hitTolerance);
+	////// both must be 1 
+	//myStep = lerp(10000, myStep, meetsLowerBound * meetsUpperBound);
+	////myStep *= ((meetsLowerBound * meetsUpperBound)) * 100;
+	//GroupMemoryBarrierWithGroupSync();
+	//InterlockedMin(t, myStep);
+
+	//GroupMemoryBarrierWithGroupSync();
+	/*if (march_CS.z >= (stored_depth - hitTolerance) && march_CS.z <= (stored_depth + hitTolerance)) {
+		d[groupThreadID.x] = myStep;
+	}*/
+
+	//GroupMemoryBarrierWithGroupSync();
+	//if (groupThreadID.x < 64) {
+	//	d[groupThreadID.x] = min(d[groupThreadID.x], d[groupThreadID.x + 64]);
+	//	d[groupThreadID.x] = min(d[groupThreadID.x], d[groupThreadID.x + 32]);
+	//	d[groupThreadID.x] = min(d[groupThreadID.x], d[groupThreadID.x + 16]);
+	//	d[groupThreadID.x] = min(d[groupThreadID.x], d[groupThreadID.x + 8]);
+	//	d[groupThreadID.x] = min(d[groupThreadID.x], d[groupThreadID.x + 4]);
+	//	d[groupThreadID.x] = min(d[groupThreadID.x], d[groupThreadID.x + 2]);
+	//	d[groupThreadID.x] = min(d[groupThreadID.x], d[groupThreadID.x + 1]);
+	//}
+	//
+
+	GroupMemoryBarrierWithGroupSync();
+	if (march_CS.z >= (stored_depth - refineTolerance * hit_OS.z) && march_CS.z <= (stored_depth + refineTolerance*hit_OS.z)) {
+		InterlockedMin(t, myStep); // This line is the FPS killer. Maybe a different solution?
+	}
+
+	const float mini_step_size = 0.02;
+	march_OS = hit_OS;
+	march_OS += ray_OS * (t-1) * step_size * hit_OS.z + ray_OS * mini_step_size * myStep *hit_OS.z;
+	march_CS = convertOStoCS(march_OS);
+
+	//float stored_depth = zConvert(_zTex[march_CS.xy * resolution.xy].r);
+
+	stored_depth = zConvert(_zTex.SampleLevel(sampler_zTex, march_CS.xy, 0).r);
+
+	GroupMemoryBarrierWithGroupSync();
+	if (march_CS.z >= (stored_depth - hitTolerance* hit_OS.z) && march_CS.z <= (stored_depth + hitTolerance* hit_OS.z)) {
+		InterlockedMin(t, myStep); // This line is the FPS killer. Maybe a different solution?
+	}
+	GroupMemoryBarrierWithGroupSync();
+
+	if (groupThreadID.x == t) {
+		Result[groupID.xy] = float4(_rgbTex.SampleLevel(sampler_rgbTex, march_CS.xy, 0).xyz,1);
+		//Result[groupID.xy] = float4(meetsLowerBound * meetsUpperBound,0,0, 1);
+	}
+	
+}
+
+
+//TODO: For some reason this is only working properly
+// when nearClip >= 1
+float LinearEyeDepthFromFile(float d) {
+
+	float x = -1 + _farClip / _nearClip;
+	float y = 1;
+	float z = x / _farClip;
+	float w = 1 / _farClip;
+
+	return 1.0 / (z * d + w);
+}
+
+float zConvert(float z) {
+	if (z == 0) return 10000;
+	return LinearEyeDepthFromFile(pow((z), 2.22));
+}
+
+float3 convertOStoCS(float3 OS) {
+	// "Clipspace" coordinate - xy is UV, z is eyespace depth 
+	float3 vertex_CS = OS;
+	vertex_CS.xy = vertex_CS.xy / vertex_CS.z;
+	vertex_CS.xy = (vertex_CS.xy + 1) / 2;
+	//vertex_CS.z = ((vertex_CS.z) - _nearClip) / (_farClip - _nearClip);
+	return vertex_CS;
+}

@@ -29,7 +29,6 @@ public class Eye: MonoBehaviour {
         }
     }
 
-
     public void RenderRGB()
     {
         GetComponent<RenderTextureToFile>().RenderRGB();

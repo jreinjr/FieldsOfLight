@@ -24,6 +24,18 @@ public class SurfaceRaytrace : MonoBehaviour {
     }
     private Material _EffectMaterial;
 
+    public Renderer Renderer
+    {
+        get
+        {
+            if (_renderer == null)
+            {
+                _renderer = GetComponent<Renderer>();
+            }
+            return _renderer;
+        }
+    }
+    private Renderer _renderer;
 
     EyeCollection eyeCollection;
 
@@ -38,7 +50,7 @@ public class SurfaceRaytrace : MonoBehaviour {
         frustrum = GetComponent<ProceduralFrustum>();
         frustrumPerspective = new Matrix4x4();
         eyeCollection = transform.parent.GetComponentInParent<EyeCollection>();
-        GetComponent<Renderer>().material = EffectMaterial;
+        Renderer.material = EffectMaterial;
     }
 
     public void RefreshTextures()

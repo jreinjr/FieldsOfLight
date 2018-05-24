@@ -72,7 +72,6 @@ GameObject:
   m_Component:
   - component: {fileID: 4659454793811702}
   - component: {fileID: 20391472019017722}
-  - component: {fileID: 114183213636676492}
   - component: {fileID: 114859826098832328}
   m_Layer: 0
   m_Name: Camera_Z
@@ -90,7 +89,6 @@ GameObject:
   m_Component:
   - component: {fileID: 4048674147098930}
   - component: {fileID: 20177364236511320}
-  - component: {fileID: 114411294830473190}
   m_Layer: 0
   m_Name: Camera_RGB
   m_TagString: Untagged
@@ -303,20 +301,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 80d5f3a048d93d84887fa04960d331f0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!114 &114183213636676492
-MonoBehaviour:
-  m_ObjectHideFlags: 1
-  m_PrefabParentObject: {fileID: 0}
-  m_PrefabInternal: {fileID: 100100000}
-  m_GameObject: {fileID: 1703102013633038}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 64541132304321b4d9fca8a91e3e73e8, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  renderTextureToClone: {fileID: 8400000, guid: 695cf675c48764f4d83d1329b3335687,
-    type: 2}
-  renderCamera: {fileID: 20391472019017722}
 --- !u!114 &114311675139868698
 MonoBehaviour:
   m_ObjectHideFlags: 1
@@ -331,20 +315,6 @@ MonoBehaviour:
   _EffectShader: {fileID: 0}
   rgb_Tex: {fileID: 2800000, guid: 23744d58fadd0b8458f43d5953e9b35c, type: 3}
   z_Tex: {fileID: 2800000, guid: ebf0bae78a396234b8d1d86d8d5009d0, type: 3}
---- !u!114 &114411294830473190
-MonoBehaviour:
-  m_ObjectHideFlags: 1
-  m_PrefabParentObject: {fileID: 0}
-  m_PrefabInternal: {fileID: 100100000}
-  m_GameObject: {fileID: 1894556649992926}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 64541132304321b4d9fca8a91e3e73e8, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  renderTextureToClone: {fileID: 8400000, guid: febc3be4c0061264d9eb08e44340727a,
-    type: 2}
-  renderCamera: {fileID: 20177364236511320}
 --- !u!114 &114584469123288820
 MonoBehaviour:
   m_ObjectHideFlags: 1
