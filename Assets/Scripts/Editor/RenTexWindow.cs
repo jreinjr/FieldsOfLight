@@ -16,6 +16,7 @@ public class RenTexWindow : EditorWindow {
     [SerializeField]
     RenderTexture activeRenTex;
     List<RenderTexture> availableRenTex;
+    int depthSlice;
 
     void Init()
     {
@@ -55,13 +56,29 @@ public class RenTexWindow : EditorWindow {
 
             menu.ShowAsContext();
         }
-        GUILayout.Label(new GUIContent(activeRenTex !=null? activeRenTex.name : "Select Render Texture"));
+
+        depthSlice = (int)GUILayout.HorizontalSlider(depthSlice, 0, 32, GUILayout.MinWidth(100));
+
+
+        GUILayout.Label(new GUIContent(activeRenTex !=null? activeRenTex.name + " " + depthSlice : "Select Render Texture"));
         GUILayout.EndHorizontal();
 
         if (activeRenTex != null)
         {
             Rect texRect = new Rect(0, 20, Mathf.Min(position.width, position.height), Mathf.Min(position.width, position.height));
-            EditorGUI.DrawPreviewTexture(texRect, activeRenTex, new Material(Shader.Find("Unlit/Texture")), ScaleMode.ScaleToFit);
+
+            if (activeRenTex.dimension == UnityEngine.Rendering.TextureDimension.Tex2DArray)
+            {
+                Material tex2DarrayScreen = new Material(Shader.Find("Unlit/Texture2DArrayScreen"));
+                tex2DarrayScreen.SetInt("_DepthSlice", depthSlice);
+                EditorGUI.DrawPreviewTexture(texRect, activeRenTex, tex2DarrayScreen, ScaleMode.ScaleToFit);
+            }
+            else if (activeRenTex.dimension == UnityEngine.Rendering.TextureDimension.Tex2D)
+            {
+                EditorGUI.DrawPreviewTexture(texRect, activeRenTex, new Material(Shader.Find("Unlit/TextureScreen")), ScaleMode.ScaleToFit);
+            }
+            else { Debug.LogError("Unexpected dimension for render texture - not 2d array or 2d"); }
+
         }
 
     }

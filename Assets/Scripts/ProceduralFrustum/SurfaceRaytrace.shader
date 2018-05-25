@@ -3,7 +3,9 @@
 	Properties
 	{
 		_MainTex ("Texture", 2D) = "white" {}
-		_BlendTex("Texture", 2D) = "white" {}
+		_BlendTex("Texture", 2DArray) = "white" {}
+		_DepthSlice("Depth Slice", Int) = 0
+
 	}
 	SubShader
 	{
@@ -142,8 +144,10 @@
 
 			stepsTaken += (float)i / (float)max_steps;
 		}
-
-		fixed4 col = fixed4(hit_OS.xyz, hitCol.w);
+		float3 hit_WS = mul(UNITY_MATRIX_M, hit_OS);
+		float3 test = mul(unity_WorldToObject, frag_WS).xyz;
+		test.z *= -1;
+		fixed4 col = fixed4(hit_OS, hitCol.w);
 
 		return col;
 	}
@@ -171,7 +175,7 @@
 			CGPROGRAM
 			#pragma vertex vert
 			#pragma fragment frag
-		
+			#pragma require 2Darray
 			#include "UnityCG.cginc"
 
 			struct appdata
@@ -186,12 +190,13 @@
 				float4 vertex_WS: TEXCOORD1;
 				float4 vertex_OS: TEXCOORD2;
 				float4 vertex : SV_POSITION;
-				float2 screenPos : TEXCOORD3;
+				float3 blendUV : TEXCOORD3;
 			};
 
 			sampler2D _MainTex;
 			float4 _MainTex_ST;
-			sampler2D _BlendTex;
+			UNITY_DECLARE_TEX2DARRAY(_BlendTex);
+			int _DepthSlice;
 
 			sampler2D _zTex;
 			float4x4 _eyePerspective;
@@ -205,7 +210,8 @@
 				o.uv = TRANSFORM_TEX(v.uv, _MainTex);
 				o.vertex_WS = mul(unity_ObjectToWorld, v.vertex);
 				o.vertex_OS = v.vertex;
-				o.screenPos = ComputeScreenPos(o.vertex);
+				o.blendUV.xy = o.vertex.xy / _ScreenParams.xy;
+				o.blendUV.z = (float)_DepthSlice;
 				return o;
 			}
 			float3 convertOStoCS(float3 OS) {
@@ -288,7 +294,7 @@
 				}
 				
 				fixed4 col = fixed4(hitCol);
-				col *= tex2D(_BlendTex, input.vertex.xy / _ScreenParams.xy).g;
+				col *= UNITY_SAMPLE_TEX2DARRAY(_BlendTex, input.blendUV).g;
 				fixed4 debug = fixed4(input.vertex.xy / _ScreenParams.xy, 0, 1);
 				return col;
 			}

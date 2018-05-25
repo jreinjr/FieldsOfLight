@@ -1,13 +1,20 @@
 ﻿// Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel Blend
 
-Texture2D<float4> hitTex;
-RWTexture2D<float4> blendTex;
+Texture2DArray<float4> hitTex;
+RWTexture2DArray<float4> blendTex;
+uniform StructuredBuffer<float3> eyePosBuffer;
+uniform uint _EyeCount;
 
-[numthreads(8, 8, 1)]
+[numthreads(1, 1, 32)]
 void Blend(uint3 id : SV_DispatchThreadID) 
 {
-	float hit = hitTex[id.xy].w;
+	if (id.z >= _EyeCount) return;
 
-	blendTex[id.xy] = float4(hit.x, 1, 0, 0);
+	float hit = hitTex[id.xyz].w;
+
+	float3 ray = eyePosBuffer[id.z] - hitTex[id.xyz].xyz;
+
+	//blendTex[id.xyz] = float4(hit.x, 1, id.z / 8.0, 0);
+	blendTex[id.xyz] = float4(eyePosBuffer[id.z], 1);
 }
