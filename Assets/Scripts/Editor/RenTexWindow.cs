@@ -40,6 +40,11 @@ public class RenTexWindow : EditorWindow {
         activeRenTex = (RenderTexture)tex;
     }
 
+    private void Update()
+    {
+        Repaint();
+    }
+
     private void OnGUI()
     {
         GUILayout.BeginVertical();
@@ -57,7 +62,7 @@ public class RenTexWindow : EditorWindow {
             menu.ShowAsContext();
         }
 
-        depthSlice = (int)GUILayout.HorizontalSlider(depthSlice, 0, 32, GUILayout.MinWidth(100));
+        depthSlice = (int)GUILayout.HorizontalSlider(depthSlice, 0, 8, GUILayout.MinWidth(100));
 
 
         GUILayout.Label(new GUIContent(activeRenTex !=null? activeRenTex.name + " " + depthSlice : "Select Render Texture"));

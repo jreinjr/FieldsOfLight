@@ -67,7 +67,7 @@ public class ComputeRaytrace : SceneViewFilter {
         computeShader.SetVector("resolution", (Vector2)resolution);
 
         computeShader.Dispatch(FindIntersectionKernel, resolution.x / 8, resolution.y / 8, 1);
-        //computeShader.Dispatch(RaymarchKernel, resolution.x, resolution.y, 1);
+        computeShader.Dispatch(RaymarchKernel, resolution.x, resolution.y, 1);
 
         EffectMaterial.SetTexture("_MainTex", result);
 
@@ -82,7 +82,7 @@ public class ComputeRaytrace : SceneViewFilter {
             return;
         }
         
-        Graphics.Blit(intersection, destination, EffectMaterial);
+        Graphics.Blit(result, destination, EffectMaterial);
     }
 
     private void OnPostRender()

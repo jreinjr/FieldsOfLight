@@ -6,8 +6,8 @@ Material:
   m_ObjectHideFlags: 0
   m_PrefabParentObject: {fileID: 0}
   m_PrefabInternal: {fileID: 0}
-  m_Name: VertexPositions
-  m_Shader: {fileID: 4800000, guid: 1a912ffb97c9159409a6c91aa698f15d, type: 3}
+  m_Name: OS-WSDebug
+  m_Shader: {fileID: 4800000, guid: f8c2821683fedc84bb49dd0ead87f927, type: 3}
   m_ShaderKeywords: 
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0

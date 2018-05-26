@@ -1,20 +1,62 @@
 ﻿// Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel Blend
+#define NUM_EYES 8
 
 Texture2DArray<float4> hitTex;
 RWTexture2DArray<float4> blendTex;
 uniform StructuredBuffer<float3> eyePosBuffer;
 uniform uint _EyeCount;
 
-[numthreads(1, 1, 32)]
-void Blend(uint3 id : SV_DispatchThreadID) 
+
+float3 _camPos;
+
+groupshared float weights[NUM_EYES];
+groupshared uint sorted_keys[NUM_EYES];
+[numthreads(1, 1, NUM_EYES)]
+void Blend(uint3 id : SV_DispatchThreadID, uint index : SV_GroupIndex) 
 {
-	if (id.z >= _EyeCount) return;
+	//if (id.z >= _EyeCount) return;
+	//if (hitTex[id.xyz].w == 0) {
+	//	blendTex[id.xyz] = float4(0, 0, 0, 0);
+	//	return;
+	//}
+	const uint blend_N_eyes = 2;
+	weights[index] = 0.0;
+	sorted_keys[index] = 0;
 
-	float hit = hitTex[id.xyz].w;
+	float4 hit_WS = hitTex[id.xyz];
+	float3 eye_ray_WS = normalize(hit_WS.xyz - eyePosBuffer[index]);
+	float3 cam_ray_WS = normalize(hit_WS.xyz - _camPos);
+	float angDiff = (dot(eye_ray_WS, cam_ray_WS) + 1) / 2 * hit_WS.w;
+	weights[index] = angDiff;
+	uint nthLargest = 0;
+	GroupMemoryBarrierWithGroupSync();
+	for (uint i = 1; i < NUM_EYES; i++)
+	{
+		// BAD WHEN THERE ARE DUPLICATES IN LIST (UNLIKELY)
+		nthLargest += weights[(index + i) % NUM_EYES] > angDiff ? 1 : 0;
+	}
+	float original;
+	InterlockedExchange(sorted_keys[nthLargest], index, original);
+	GroupMemoryBarrierWithGroupSync();
+	float thresh = weights[sorted_keys[blend_N_eyes - 1]];
 
-	float3 ray = eyePosBuffer[id.z] - hitTex[id.xyz].xyz;
+	float angBlend = max(0, 1 - (1-angDiff) / (1-thresh));
+	//weights[index] = angBlend;
+	GroupMemoryBarrierWithGroupSync();
 
-	//blendTex[id.xyz] = float4(hit.x, 1, id.z / 8.0, 0);
-	blendTex[id.xyz] = float4(eyePosBuffer[id.z], 1);
+	float angBlendSum = 0;
+	for (uint j = 0; j < blend_N_eyes; j++)
+	{
+		angBlendSum += weights[sorted_keys[j]];
+	}
+
+	float normalizedAngBlend = angBlend / angBlendSum;
+
+	// a (< 0.001f) is stencil, g is blend factor
+	//blendTex[id.xyz] = float4(index == 3?1:0, 1, 0, 0);
+	//blendTex[id.xyz] = float4(normalizedAngBlend, normalizedAngBlend, 0, 1);
+	//blendTex[id.xyz] = float4(index == 0 ? 1 : 0, 1, dot(eye_ray_WS, cam_ray_WS), 1);
+	blendTex[id.xyz] = float4(normalizedAngBlend, normalizedAngBlend,0, 1);
+	//blendTex[id.xyz] = float4(sorted_keys[index] / 8.0, 0, 0, 1);
 }

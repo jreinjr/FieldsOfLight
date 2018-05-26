@@ -4,8 +4,6 @@
 	{
 		_StencilMask("Mask Layer", Range(0, 255)) = 255
 		_MainTex("Texture", 2DArray) = "white" {}
-		_DepthSlice("Depth Slice", Int) = 0
-
 
 	}
 	SubShader
@@ -42,22 +40,23 @@
 
 			UNITY_DECLARE_TEX2DARRAY(_MainTex);
 			float4 _MainTex_ST;
-			int _DepthSlice;
+			int _WriteToStencilLayer;
 
 			v2f vert(appdata_t v)
 			{
 				v2f o;
 				o.vertex = UnityObjectToClipPos(v.vertex);
 				o.uv.xy = TRANSFORM_TEX(v.uv, _MainTex);
-				o.uv.z = (float)_DepthSlice;
+				o.uv.z = (float)_WriteToStencilLayer;
 				return o;
 			}
 
 			fixed4 frag(v2f i) : SV_Target
 			{
 				fixed4 col = UNITY_SAMPLE_TEX2DARRAY(_MainTex, i.uv);
+				// _MainTex r is stencil, g is blend factor
 				if (col.r < 0.001f) discard;
-				return fixed4(1,1,1,1);
+				return fixed4(1,1,1, 1);
 			}
 			ENDCG
 		}

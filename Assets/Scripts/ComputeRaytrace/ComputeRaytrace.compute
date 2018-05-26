@@ -101,7 +101,7 @@ bool frustum(float3 org, float3 dir, float nearClip, float farClip, out float ne
 groupshared uint t;
 groupshared uint d[128];
 #pragma kernel Raymarch
-[numthreads(40,24,1)]
+[numthreads(100,4,1)]
 void Raymarch(uint3 groupID: SV_GroupID, uint3 groupThreadID: SV_GroupThreadID) {
 	t = 10000; // Initialize groupshared memory
 	d[groupThreadID.x] = 10000;

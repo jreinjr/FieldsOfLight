@@ -2,7 +2,7 @@
 {
 	Properties
 	{
-		//_StencilMask("Mask Layer", Range(0, 255)) = 0
+		_StencilMask("Mask Layer", Range(0, 255)) = 0
 	}
 	SubShader
 	{
