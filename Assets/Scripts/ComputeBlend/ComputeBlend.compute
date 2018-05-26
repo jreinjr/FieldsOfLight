@@ -20,7 +20,7 @@ void Blend(uint3 id : SV_DispatchThreadID, uint index : SV_GroupIndex)
 	//	blendTex[id.xyz] = float4(0, 0, 0, 0);
 	//	return;
 	//}
-	const uint blend_N_eyes = 2;
+	const uint blend_N_eyes = 3;
 	weights[index] = 0.0;
 	sorted_keys[index] = 0;
 
@@ -53,10 +53,10 @@ void Blend(uint3 id : SV_DispatchThreadID, uint index : SV_GroupIndex)
 
 	float normalizedAngBlend = angBlend / angBlendSum;
 
-	// a (< 0.001f) is stencil, g is blend factor
-	//blendTex[id.xyz] = float4(index == 3?1:0, 1, 0, 0);
-	//blendTex[id.xyz] = float4(normalizedAngBlend, normalizedAngBlend, 0, 1);
-	//blendTex[id.xyz] = float4(index == 0 ? 1 : 0, 1, dot(eye_ray_WS, cam_ray_WS), 1);
-	blendTex[id.xyz] = float4(normalizedAngBlend, normalizedAngBlend,0, 1);
-	//blendTex[id.xyz] = float4(sorted_keys[index] / 8.0, 0, 0, 1);
+	// r (< 0.001f) is stencil, g is blend factor
+	//blendTex[id.xyz] = float4(index == 0?1 * hitTex[id.xyz].w :0 , 1, 0, 0);
+	/////////////////////////////////
+	// Should be normalizedAngBlend but that is fucking slow - something isnt working
+	/////////////////////////////////
+	blendTex[id.xyz] = float4(angBlend, angBlend,0, 1);
 }

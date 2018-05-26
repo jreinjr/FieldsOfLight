@@ -63,12 +63,10 @@ float zConvert(float z) {
 
 // origin is the objectspace point of first intersection with the frustum
 // dir is objectspace ray (origin - cameraPosition)
-float4 surfaceRaytrace(float3 origin, float3 dir) {
-	uint max_steps = 100;
-	float hitTolerance = 0.064;
-	float refineTolerance = 0.064;
-	float orig_step_size = .1;
+float4 surfaceRaytrace(float3 origin, float3 dir, uint max_steps, float orig_step_size) {
 	float step_size = orig_step_size;
+	float hitTolerance = orig_step_size * 0.05;
+	
 
 	float3 hit_OS = origin;
 	float4 hit_CS = (0,0,0,0);
@@ -78,9 +76,9 @@ float4 surfaceRaytrace(float3 origin, float3 dir) {
 	{
 		hit_CS = convertOStoCS(float4(hit_OS, 0));
 
-		/*if (hit_CS.x > 1 || hit_CS.y > 1 || hit_CS.x < -0.1 || hit_CS.y < -0.1 || hit_CS.z > 10) {
+		if (hit_CS.x > 1 || hit_CS.y > 1 || hit_CS.x < 0|| hit_CS.y < 0.0 || hit_CS.z > _farClip) {
 			break;
-		}*/
+		}
 
 		float stored_depth = zConvert(tex2D(_zTex, hit_CS.xy).r);
 
@@ -88,13 +86,12 @@ float4 surfaceRaytrace(float3 origin, float3 dir) {
 			hit_CS.w = 1;
 			break;
 		}
-		else if (hit_CS.z >(stored_depth - refineTolerance)) {
+		else if (hit_CS.z >stored_depth) {
 			step_size = step_size / 2;
 			hit_OS -= dir * step_size;
 		}
 
 		else {
-			step_size = orig_step_size;
 			hit_OS += dir * step_size;
 		}
 	}
