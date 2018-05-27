@@ -65,37 +65,60 @@ float zConvert(float z) {
 // dir is objectspace ray (origin - cameraPosition)
 float4 surfaceRaytrace(float3 origin, float3 dir, uint max_steps, float orig_step_size) {
 	float step_size = orig_step_size;
-	float hitTolerance = orig_step_size * 0.05;
-	
-
+	float hitTolerance = orig_step_size * 0.8;
+	float refineTolerance = orig_step_size * 0.1;
+	uint refine_steps = 8;
 	float3 hit_OS = origin;
 	float4 hit_CS = (0,0,0,0);
+
+	float4 debug = float4(1, 0, 0, 0);
 
 	[loop]
 	for (uint i = 0; i < max_steps; i++)
 	{
 		hit_CS = convertOStoCS(float4(hit_OS, 0));
-
-		if (hit_CS.x > 1 || hit_CS.y > 1 || hit_CS.x < 0|| hit_CS.y < 0.0 || hit_CS.z > _farClip) {
-			break;
-		}
-
 		float stored_depth = zConvert(tex2D(_zTex, hit_CS.xy).r);
 
-		if (hit_CS.z >= (stored_depth - hitTolerance) && hit_CS.z <= (stored_depth + hitTolerance)) {
-			hit_CS.w = 1;
+
+		if (hit_CS.x > 1 || hit_CS.y > 1 || hit_CS.x < -0.00001|| hit_CS.y <  -0.00001 || hit_CS.z > _farClip) {
 			break;
 		}
-		else if (hit_CS.z >stored_depth) {
-			step_size = step_size / 2;
+
+
+		if (hit_CS.z >= (stored_depth - hitTolerance) && hit_CS.z <= (stored_depth + hitTolerance)) {
+			debug = float4(0, 1, 0, 1);
+			[loop]
+			for (uint j = 0; j < refine_steps; j++)
+			{
+				if (hit_CS.z >= (stored_depth - refineTolerance) && hit_CS.z <= (stored_depth + refineTolerance)) {
+					hit_CS.w = 1;
+					debug = float4(0, 0, 1, 1);
+					break;
+				}
+				else if (hit_CS.z > stored_depth) {
+					hit_OS -= dir * step_size;
+					step_size = step_size * 0.5;
+
+				}
+				else {
+					hit_OS += dir * step_size;
+
+				}
+				hit_CS = convertOStoCS(float4(hit_OS, 0));
+				stored_depth = zConvert(tex2D(_zTex, hit_CS.xy).r);
+			}
+			hit_CS.w = 1;
+		}
+		else if (hit_CS.z > stored_depth) {
+			step_size = step_size *0.5;
 			hit_OS -= dir * step_size;
 		}
-
 		else {
+			step_size = orig_step_size;
 			hit_OS += dir * step_size;
 		}
-	}
 
+	}
 	return hit_CS;
 }
 

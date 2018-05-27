@@ -33,7 +33,7 @@ public class ProceduralFrustum : MonoBehaviour {
     private void Update()
     {
         fov = cameraSettings.fieldOfView;
-        aspect = cameraSettings.aspect;
+        //aspect = cameraSettings.aspect;
         nearClip = cameraSettings.nearClipPlane;
         farClip = cameraSettings.farClipPlane;
     }

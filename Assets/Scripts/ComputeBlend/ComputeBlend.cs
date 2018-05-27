@@ -140,7 +140,7 @@ public class ComputeBlend : MonoBehaviour {
             cmdBufferBeforeOpaque.SetRenderTarget(hitTex, 0, CubemapFace.Unknown, i);
             cmdBufferBeforeOpaque.ClearRenderTarget(true, true, Color.clear);
             // Draw low res raytrace hit to hitTex
-            //cmdBufferBeforeOpaque.DrawRenderer(eyeRenderers[i], eyeRenderers[i].sharedMaterial, 0, 2);
+            cmdBufferBeforeOpaque.DrawRenderer(eyeRenderers[i], eyeRenderers[i].sharedMaterial, 0, 2);
             cmdBufferBeforeOpaque.DrawRenderer(eyeRenderers[i], eyeRenderers[i].sharedMaterial, 0, 0);
         }
         // Dispatch compute shader to compute blendTex from hitTex
@@ -159,7 +159,7 @@ public class ComputeBlend : MonoBehaviour {
             cmdBufferAfterEverything.SetGlobalInt("_WriteToStencilLayer", i);
             cmdBufferAfterEverything.Blit(BuiltinRenderTextureType.CurrentActive, BuiltinRenderTextureType.CurrentActive, writeToStencilMat);
             // Draw high res texture hit
-            //cmdBufferAfterEverything.DrawRenderer(eyeRenderers[i], eyeRenderers[i].sharedMaterial, 0, 3);
+            cmdBufferAfterEverything.DrawRenderer(eyeRenderers[i], eyeRenderers[i].sharedMaterial, 0, 3);
             cmdBufferAfterEverything.DrawRenderer(eyeRenderers[i], eyeRenderers[i].sharedMaterial, 0, 1);
         }
         cam.AddCommandBuffer(CameraEvent.AfterEverything, cmdBufferAfterEverything);

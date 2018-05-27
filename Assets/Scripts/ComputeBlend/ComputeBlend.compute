@@ -20,7 +20,7 @@ void Blend(uint3 id : SV_DispatchThreadID, uint index : SV_GroupIndex)
 	//	blendTex[id.xyz] = float4(0, 0, 0, 0);
 	//	return;
 	//}
-	const uint blend_N_eyes = 3;
+	const uint blend_N_eyes = 2;
 	weights[index] = 0.0;
 	sorted_keys[index] = 0;
 
@@ -42,7 +42,7 @@ void Blend(uint3 id : SV_DispatchThreadID, uint index : SV_GroupIndex)
 	float thresh = weights[sorted_keys[blend_N_eyes - 1]];
 
 	float angBlend = max(0, 1 - (1-angDiff) / (1-thresh));
-	//weights[index] = angBlend;
+	weights[index] = angBlend;
 	GroupMemoryBarrierWithGroupSync();
 
 	float angBlendSum = 0;
@@ -51,12 +51,16 @@ void Blend(uint3 id : SV_DispatchThreadID, uint index : SV_GroupIndex)
 		angBlendSum += weights[sorted_keys[j]];
 	}
 
-	float normalizedAngBlend = angBlend / angBlendSum;
+	float normalizedAngBlend = 0;
+	if (angBlendSum > 0) {
+		normalizedAngBlend = angBlend / angBlendSum;
+	}
+	 
 
 	// r (< 0.001f) is stencil, g is blend factor
 	//blendTex[id.xyz] = float4(index == 0?1 * hitTex[id.xyz].w :0 , 1, 0, 0);
 	/////////////////////////////////
 	// Should be normalizedAngBlend but that is fucking slow - something isnt working
 	/////////////////////////////////
-	blendTex[id.xyz] = float4(angBlend, angBlend,0, 1);
+	blendTex[id.xyz] = float4(normalizedAngBlend, normalizedAngBlend, 0, 1);
 }
