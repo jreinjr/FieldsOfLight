@@ -12,8 +12,7 @@
 		LOD 100
 		Pass
 		{
-			Blend SrcAlpha OneMinusSrcAlpha
-			BlendOp Add
+			Blend SrcAlpha One
 			ZWrite Off
 			Cull Back
 
@@ -34,7 +33,7 @@
 				float3 ray_OS = mul(unity_WorldToObject, ray_WS);
 
 
-				float4 hit_CS = surfaceRaytrace(input.vertex_OS, ray_OS, 30, 0.3);
+				float4 hit_CS = surfaceRaytrace(input.vertex_OS, ray_OS, 60, 0.3);
 				float4 hit_OS = convertCStoOS(hit_CS);
 				float4 hit_WS = float4(mul(unity_ObjectToWorld, float4(hit_OS)).xyz, hit_CS.w);
 				return hit_WS;
@@ -49,8 +48,7 @@
 				Ref 255
 				Comp Equal
 			}
-			Blend SrcAlpha OneMinusSrcAlpha
-			BlendOp Add
+			Blend SrcAlpha One
 			ZWrite Off
 			Cull Back
 			CGPROGRAM
@@ -100,8 +98,8 @@
 
 		Pass
 			{
-			Blend SrcAlpha OneMinusSrcAlpha
-			BlendOp Add
+				
+			Blend SrcAlpha One
 			ZWrite Off
 			Cull Front
 
@@ -122,7 +120,7 @@
 				float3 ray_OS = mul(unity_WorldToObject, ray_WS);
 
 				float3 cam_OS = mul(unity_WorldToObject, float4(_WorldSpaceCameraPos, 1));
-				float4 hit_CS = surfaceRaytrace(cam_OS, ray_OS, 100, 0.1);
+				float4 hit_CS = surfaceRaytrace(cam_OS, ray_OS, 60, 0.1);
 				float4 hit_OS = convertCStoOS(hit_CS);
 				float4 hit_WS = float4(mul(unity_ObjectToWorld, float4(hit_OS)).xyz, hit_CS.w);
 				return hit_WS;
@@ -136,7 +134,7 @@
 				Ref 255
 				Comp Equal
 			}
-				Blend SrcAlpha OneMinusSrcAlpha
+				Blend SrcAlpha One
 				BlendOp Add
 				ZWrite Off
 				Cull Front

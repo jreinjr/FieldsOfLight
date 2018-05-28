@@ -71,8 +71,6 @@ float4 surfaceRaytrace(float3 origin, float3 dir, uint max_steps, float orig_ste
 	float3 hit_OS = origin;
 	float4 hit_CS = (0,0,0,0);
 
-	float4 debug = float4(1, 0, 0, 0);
-
 	[loop]
 	for (uint i = 0; i < max_steps; i++)
 	{
@@ -86,22 +84,21 @@ float4 surfaceRaytrace(float3 origin, float3 dir, uint max_steps, float orig_ste
 
 
 		if (hit_CS.z >= (stored_depth - hitTolerance) && hit_CS.z <= (stored_depth + hitTolerance)) {
-			debug = float4(0, 1, 0, 1);
 			[loop]
 			for (uint j = 0; j < refine_steps; j++)
 			{
+
 				if (hit_CS.z >= (stored_depth - refineTolerance) && hit_CS.z <= (stored_depth + refineTolerance)) {
 					hit_CS.w = 1;
-					debug = float4(0, 0, 1, 1);
 					break;
 				}
 				else if (hit_CS.z > stored_depth) {
-					hit_OS -= dir * step_size;
+					hit_OS -= dir * step_size * hit_CS.z;
 					step_size = step_size * 0.5;
 
 				}
 				else {
-					hit_OS += dir * step_size;
+					hit_OS += dir * step_size * hit_CS.z;
 
 				}
 				hit_CS = convertOStoCS(float4(hit_OS, 0));
@@ -111,11 +108,11 @@ float4 surfaceRaytrace(float3 origin, float3 dir, uint max_steps, float orig_ste
 		}
 		else if (hit_CS.z > stored_depth) {
 			step_size = step_size *0.5;
-			hit_OS -= dir * step_size;
+			hit_OS -= dir * step_size * hit_CS.z;
 		}
 		else {
 			step_size = orig_step_size;
-			hit_OS += dir * step_size;
+			hit_OS += dir * step_size * hit_CS.z;
 		}
 
 	}

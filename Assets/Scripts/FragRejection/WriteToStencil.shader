@@ -55,7 +55,7 @@
 			{
 				fixed4 col = UNITY_SAMPLE_TEX2DARRAY(_MainTex, i.uv);
 				// _MainTex r is stencil, g is blend factor
-				if (col.r < 0.001f) discard;
+				if (col.r <= 0.001f) discard;
 				return fixed4(1,1,1, 1);
 			}
 			ENDCG

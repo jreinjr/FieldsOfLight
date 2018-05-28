@@ -83,19 +83,25 @@ public class ComputeBlend : MonoBehaviour {
     /////////////////////////////////////
     // Compute Buffer Setup
     /////////////////////////////////////
-    private ComputeBuffer eyePosBuffer;
+    private ComputeBuffer eyeDataBuffer;
+    private struct EyeData
+    {
+        public Vector3 eyePos;
+        public Vector3 eyeFwd;
+    }
     /// <summary>
     /// Declares a compute buffer to pass Eye world space positions to our compute blend shader.
     /// </summary>
     void InitComputeBuffers()
     {
-        Vector3[] eyePosArray = new Vector3[eyeRenderers.Count];
-        for (int i = 0; i < eyePosArray.Length; i++)
+        EyeData[] eyeDataArray = new EyeData[eyeRenderers.Count];
+        for (int i = 0; i < eyeDataArray.Length; i++)
         {
-            eyePosArray[i] = eyeRenderers[i].gameObject.transform.position;
+            eyeDataArray[i].eyePos = eyeRenderers[i].gameObject.transform.position;
+            eyeDataArray[i].eyeFwd = eyeRenderers[i].gameObject.transform.forward;
         }
-        eyePosBuffer = new ComputeBuffer(eyeRenderers.Count, sizeof(float) * 3, ComputeBufferType.Default);
-        eyePosBuffer.SetData(eyePosArray);
+        eyeDataBuffer = new ComputeBuffer(eyeRenderers.Count, sizeof(float) * 6, ComputeBufferType.Default);
+        eyeDataBuffer.SetData(eyeDataArray);
     }
 
     /////////////////////////////////////
@@ -113,7 +119,7 @@ public class ComputeBlend : MonoBehaviour {
         BlendKernel = computeShader.FindKernel("Blend");
         computeShader.SetTexture(BlendKernel, "hitTex", hitTex);
         computeShader.SetTexture(BlendKernel, "blendTex", blendTex);
-        computeShader.SetBuffer(BlendKernel, "eyePosBuffer", eyePosBuffer);
+        computeShader.SetBuffer(BlendKernel, "eyeDataBuffer", eyeDataBuffer);
         computeShader.SetInt("_EyeCount", eyeRenderers.Count);
     }
 
@@ -182,6 +188,6 @@ public class ComputeBlend : MonoBehaviour {
         cam.RemoveCommandBuffer(CameraEvent.AfterEverything, cmdBufferAfterEverything);
         hitTex.Release();
         blendTex.Release();
-        eyePosBuffer.Dispose();
+        eyeDataBuffer.Dispose();
     }
 }

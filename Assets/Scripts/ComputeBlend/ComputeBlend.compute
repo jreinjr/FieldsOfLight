@@ -2,16 +2,22 @@
 #pragma kernel Blend
 #define NUM_EYES 8
 
+struct EyeData 
+{
+	float3 pos;
+	float3 fwd;
+};
+
 Texture2DArray<float4> hitTex;
 RWTexture2DArray<float4> blendTex;
-uniform StructuredBuffer<float3> eyePosBuffer;
+uniform StructuredBuffer<EyeData> eyeDataBuffer;
 uniform uint _EyeCount;
 
 
 float3 _camPos;
 
 groupshared float weights[NUM_EYES];
-groupshared uint sorted_keys[NUM_EYES];
+groupshared int sorted_keys[NUM_EYES];
 [numthreads(1, 1, NUM_EYES)]
 void Blend(uint3 id : SV_DispatchThreadID, uint index : SV_GroupIndex) 
 {
@@ -22,26 +28,38 @@ void Blend(uint3 id : SV_DispatchThreadID, uint index : SV_GroupIndex)
 	//}
 	const uint blend_N_eyes = 2;
 	weights[index] = 0.0;
-	sorted_keys[index] = 0;
+	sorted_keys[index] = -1;
 
 	float4 hit_WS = hitTex[id.xyz];
-	float3 eye_ray_WS = normalize(hit_WS.xyz - eyePosBuffer[index]);
+	float3 eye_ray_WS = normalize(hit_WS.xyz - eyeDataBuffer[index].pos);
+
+	float fovWeight = max(dot(eye_ray_WS, eyeDataBuffer[index].fwd), 0);
+	 
 	float3 cam_ray_WS = normalize(hit_WS.xyz - _camPos);
 	float angDiff = (dot(eye_ray_WS, cam_ray_WS) + 1) / 2 * hit_WS.w;
-	weights[index] = angDiff;
+	weights[index] = angDiff *fovWeight;
 	uint nthLargest = 0;
 	GroupMemoryBarrierWithGroupSync();
 	for (uint i = 1; i < NUM_EYES; i++)
 	{
 		// BAD WHEN THERE ARE DUPLICATES IN LIST (UNLIKELY)
-		nthLargest += weights[(index + i) % NUM_EYES] > angDiff ? 1 : 0;
+		nthLargest += weights[(index + i) % NUM_EYES] > weights[index] ? 1 : 0;
 	}
 	float original;
 	InterlockedExchange(sorted_keys[nthLargest], index, original);
 	GroupMemoryBarrierWithGroupSync();
-	float thresh = weights[sorted_keys[blend_N_eyes - 1]];
+	float thresh = 1;
 
-	float angBlend = max(0, 1 - (1-angDiff) / (1-thresh));
+	[loop]
+	for (uint i = 1; i < blend_N_eyes; i++) {
+		if (sorted_keys[blend_N_eyes - i] >= 0){
+			thresh = weights[sorted_keys[blend_N_eyes - i]];
+			break;
+		}
+	}
+	
+	GroupMemoryBarrierWithGroupSync();
+	float angBlend = max(0, 1 - (1-weights[index]) / (1-thresh));
 	weights[index] = angBlend;
 	GroupMemoryBarrierWithGroupSync();
 
@@ -55,7 +73,13 @@ void Blend(uint3 id : SV_DispatchThreadID, uint index : SV_GroupIndex)
 	if (angBlendSum > 0) {
 		normalizedAngBlend = angBlend / angBlendSum;
 	}
-	 
+	GroupMemoryBarrierWithGroupSync();
+	weights[index] = normalizedAngBlend;
+	angBlendSum = 0;
+	for (uint j = 0; j < blend_N_eyes; j++)
+	{
+		angBlendSum += weights[sorted_keys[j]];
+	}
 
 	// r (< 0.001f) is stencil, g is blend factor
 	//blendTex[id.xyz] = float4(index == 0?1 * hitTex[id.xyz].w :0 , 1, 0, 0);
