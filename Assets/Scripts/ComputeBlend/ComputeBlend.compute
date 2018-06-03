@@ -11,80 +11,185 @@ struct EyeData
 Texture2DArray<float4> hitTex;
 RWTexture2DArray<float4> blendTex;
 uniform StructuredBuffer<EyeData> eyeDataBuffer;
+StructuredBuffer<float> eyeBlendBuffer;
 uniform uint _EyeCount;
-
-
+uint _soloEyeIndex;
+bool _soloEye;
 float3 _camPos;
+float3 _camFwd;
+
+float Map(float value, float min1, float max1, float min2, float max2) {
+	float pct = (value - min1) / (max1 - min1);
+	return pct * (max2 - min2) + min2;
+}
 
 groupshared float weights[NUM_EYES];
+groupshared float sorted_weights[NUM_EYES];
+groupshared float hitDistance[NUM_EYES];
+groupshared float sorted_hitDistance[NUM_EYES];
 groupshared int sorted_keys[NUM_EYES];
+groupshared float weightThresh;
+groupshared float hitDistanceThresh;
 [numthreads(1, 1, NUM_EYES)]
 void Blend(uint3 id : SV_DispatchThreadID, uint index : SV_GroupIndex) 
 {
-	//if (id.z >= _EyeCount) return;
-	//if (hitTex[id.xyz].w == 0) {
-	//	blendTex[id.xyz] = float4(0, 0, 0, 0);
-	//	return;
-	//}
-	const uint blend_N_eyes = 2;
+
+
+	// MAX IS 5
+	int blend_N_eyes = 3;
+
+	float hitDistanceTolerance = 0.1;
+
 	weights[index] = 0.0;
-	sorted_keys[index] = -1;
+	hitDistance[index] = 0.0;
+	sorted_keys[index] = index;
+	weightThresh = -1;
+	hitDistanceThresh = -1;
+
 
 	float4 hit_WS = hitTex[id.xyz];
 	float3 eye_ray_WS = normalize(hit_WS.xyz - eyeDataBuffer[index].pos);
-
-	float fovWeight = max(dot(eye_ray_WS, eyeDataBuffer[index].fwd), 0);
-	 
 	float3 cam_ray_WS = normalize(hit_WS.xyz - _camPos);
-	float angDiff = (dot(eye_ray_WS, cam_ray_WS) + 1) / 2 * hit_WS.w;
-	weights[index] = angDiff *fovWeight;
-	uint nthLargest = 0;
-	GroupMemoryBarrierWithGroupSync();
-	for (uint i = 1; i < NUM_EYES; i++)
-	{
-		// BAD WHEN THERE ARE DUPLICATES IN LIST (UNLIKELY)
-		nthLargest += weights[(index + i) % NUM_EYES] > weights[index] ? 1 : 0;
-	}
-	float original;
-	InterlockedExchange(sorted_keys[nthLargest], index, original);
-	GroupMemoryBarrierWithGroupSync();
-	float thresh = 1;
 
-	[loop]
-	for (uint i = 1; i < blend_N_eyes; i++) {
-		if (sorted_keys[blend_N_eyes - i] >= 0){
-			thresh = weights[sorted_keys[blend_N_eyes - i]];
-			break;
+	float didHit = (hit_WS.w > 0 ? 1 : 0);
+	hitDistance[index] = didHit?hit_WS.w:1000000;
+	sorted_hitDistance[index] = hitDistance[index];
+	float3 u = normalize(hitTex[float3(id.x + 4, id.y, id.z)] - hitTex[float3(id.x - 4, id.y, id.z)]);
+	float3 v = normalize(hitTex[float3(id.x, id.y + 4, id.z)] - hitTex[float3(id.x, id.y - 4, id.z)]);
+	float3 normal_WS =cross(u, v) * -1;
+
+	float normalDiff = (dot(eye_ray_WS, 1-normal_WS) + 1) / 2;
+
+	//float angDiff = (dot(eye_ray_WS, cam_ray_WS) + 1) / 2;
+	float angDiff = (dot(eyeDataBuffer[index].fwd, _camFwd) + 1) / 2;
+	float resDiff = min(1, distance(hit_WS.xyz, _camPos)/ distance(hit_WS.xyz, eyeDataBuffer[index].pos));
+
+	GroupMemoryBarrierWithGroupSync();
+	if (index == 0)
+	{
+		uint i = 1;
+		uint j = i;
+		float tempWeight;
+		int tempKey;
+		while (i < NUM_EYES)
+		{
+			// Sort hit distances
+			j = i;
+			while (j > 0 && sorted_hitDistance[j - 1] > sorted_hitDistance[j])
+			{
+				tempWeight = sorted_hitDistance[j - 1];
+				sorted_hitDistance[j - 1] = sorted_hitDistance[j];
+				sorted_hitDistance[j] = tempWeight;
+				j = j - 1;
+			}
+
+			i = i + 1;
+		}
+
+		hitDistanceThresh = sorted_hitDistance[blend_N_eyes - 1];
+
+		for (int i = blend_N_eyes; i > 0; i--)
+		{
+			if (sorted_hitDistance[i - 1] < 100000) {
+				hitDistanceThresh = sorted_hitDistance[i - 1];
+				break;
+			}
+		}
+
+	}
+
+	float hitDistanceBlend = max(0, Map(hitDistance[index], sorted_hitDistance[0], sorted_hitDistance[0] + 5, 1, 0));
+	weights[index] = angDiff * hitDistanceBlend * resDiff;// *normalDiff;
+	weights[index] *= weights[index];
+	sorted_weights[index] = weights[index];
+
+	GroupMemoryBarrierWithGroupSync();
+	if (index == 0) 
+	{
+		uint i = 1;
+		uint j = i;
+		float tempWeight;
+		int tempKey;
+		while (i < NUM_EYES) 
+		{
+			// Sort weights
+			j = i;
+			while (j > 0 && sorted_weights[j - 1] < sorted_weights[j])
+			{
+				tempWeight = sorted_weights[j - 1];
+				sorted_weights[j - 1] = sorted_weights[j];
+				sorted_weights[j] = tempWeight;
+
+				tempKey = sorted_keys[j - 1];
+				sorted_keys[j - 1] = sorted_keys[j];
+				sorted_keys[j] = tempKey;
+
+				j = j - 1;
+			}
+
+			i = i + 1;
+		}
+
+		weightThresh = weights[sorted_keys[blend_N_eyes - 1]];
+		for (int i = blend_N_eyes; i > 0; i--)
+		{
+			if (weights[sorted_keys[i - 1]] > 0.000001f) {
+				weightThresh = weights[sorted_keys[i - 1]] * 0.99999;// *didHit;
+				break;
+			}
 		}
 	}
-	
 	GroupMemoryBarrierWithGroupSync();
-	float angBlend = max(0, 1 - (1-weights[index]) / (1-thresh));
-	weights[index] = angBlend;
+	float angBlend = max(0, 1 - (1 - weights[index]) / (1 - weightThresh));//  *hit_WS.w;
 	GroupMemoryBarrierWithGroupSync();
 
+	////////////////////////////////
+	// FOV BLEND
+	////////////////////////////////	
+	float fovBlend = clamp((dot(eye_ray_WS, eyeDataBuffer[index].fwd) - 0.66)*12,0,1);// *didHit;
+	weights[index] = angBlend * didHit *fovBlend;
+
+	////////////////////////////////
+	// SUM TO ONE
+	////////////////////////////////
 	float angBlendSum = 0;
-	for (uint j = 0; j < blend_N_eyes; j++)
-	{
-		angBlendSum += weights[sorted_keys[j]];
-	}
-
 	float normalizedAngBlend = 0;
-	if (angBlendSum > 0) {
-		normalizedAngBlend = angBlend / angBlendSum;
-	}
-	GroupMemoryBarrierWithGroupSync();
-	weights[index] = normalizedAngBlend;
-	angBlendSum = 0;
-	for (uint j = 0; j < blend_N_eyes; j++)
+	for (uint i = 0; i < blend_N_eyes; i++)
 	{
-		angBlendSum += weights[sorted_keys[j]];
+		angBlendSum += weights[sorted_keys[i]];
 	}
 
-	// r (< 0.001f) is stencil, g is blend factor
-	//blendTex[id.xyz] = float4(index == 0?1 * hitTex[id.xyz].w :0 , 1, 0, 0);
-	/////////////////////////////////
-	// Should be normalizedAngBlend but that is fucking slow - something isnt working
-	/////////////////////////////////
-	blendTex[id.xyz] = float4(normalizedAngBlend, normalizedAngBlend, 0, 1);
+	if (angBlendSum > 0) normalizedAngBlend = weights[index] / angBlendSum;
+/*
+	float4 angBlendVector = float4(0, 0, 0, 0);
+	angBlendVector.x = weights[sorted_keys[0]];
+	angBlendVector.y = weights[sorted_keys[1]];
+	angBlendVector.z = weights[sorted_keys[2]];
+	angBlendVector.w = weights[sorted_keys[3]];
+	angBlendVector = normalize(angBlendVector);
+
+	float blend = 0;
+	if (index == sorted_keys[0]) blend = angBlendVector.x;
+	if (index == sorted_keys[1]) blend = angBlendVector.y;
+	if (index == sorted_keys[2]) blend = angBlendVector.z;
+	if (index == sorted_keys[3]) blend = angBlendVector.w;*/
+
+	if (_soloEye) 
+	{
+		blendTex[id.xyz] = float4(index == _soloEyeIndex ? didHit :0 , 1, 0, 0);
+		//blendTex[id.xyz] = float4(normalDiff,0,0, 0);
+
+	}
+	else
+	{
+		blendTex[id.xyz] = float4(normalizedAngBlend, normalizedAngBlend, 0, 0);
+	}
+
+	/*blendTex[id.xyz] = float4(
+		sorted_keys[index] < 2? (sorted_keys[index] + 1)/3.0 : 0,
+		(sorted_keys[index] >= 2 && sorted_keys[index] < 5 )  ? (sorted_keys[index] - 1) / 3.0 : 0,
+		sorted_keys[index] >= 5? (sorted_keys[index] - 4) / 3.0 : 0,
+		0);*/
+	//blendTex[id.xyz] = float4(normalizedAngBlend, normalizedAngBlend, 0, 0);
+
 }

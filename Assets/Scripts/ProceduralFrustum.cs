@@ -2,16 +2,10 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-[ExecuteInEditMode]
+[RequireComponent(typeof(MeshFilter))]
 public class ProceduralFrustum : MonoBehaviour {
 
-    public Camera cameraSettings
-    {
-        get
-        {
-            return transform.parent.Find("Camera_RGB").GetComponent<Camera>();
-        }
-    }
+
 
     public float fov;
     public float aspect;
@@ -21,26 +15,42 @@ public class ProceduralFrustum : MonoBehaviour {
     private MeshFilter filter;
     private Mesh mesh;
 
-
+    private Plane[] planes;
+    //private string[] debugLabels = { "front", "left", "top", "right", "bottom", "back" };
 
     // Use this for initialization
-    void Start () {
-
-       
+    void Start ()
+    {
+        BuildMesh();
     }
+
+    public bool IsPointInsideFrustum(Vector3 p, float padding = 0f)
+    {
+        bool outside = false;
+        Plane testPlane = new Plane();
+        for (int i = 0; i < 6; i++)
+        {
+            testPlane.SetNormalAndPosition(planes[i].normal, planes[i].ClosestPointOnPlane(p) + padding * planes[i].normal);
+            outside = outside || testPlane.GetSide(p);
+        }
+        return !outside;
+    }
+
 
 
     private void Update()
     {
-        fov = cameraSettings.fieldOfView;
-        //aspect = cameraSettings.aspect;
-        nearClip = cameraSettings.nearClipPlane;
-        farClip = cameraSettings.farClipPlane;
     }
 
     private void OnValidate()
     {
-        
+        //BuildMesh();
+    }
+    
+    void BuildMesh()
+    {
+        planes = new Plane[6];
+
         float fovWHalf = fov * 0.5f;
         float tan_fov = Mathf.Tan(fovWHalf * Mathf.Deg2Rad);
 
@@ -72,7 +82,7 @@ public class ProceduralFrustum : MonoBehaviour {
         {
             filter.sharedMesh = new Mesh();
         }
-        mesh = filter.sharedMesh; 
+        mesh = filter.sharedMesh;
         mesh.Clear();
 
         // Trying first with shared verts
@@ -136,13 +146,14 @@ public class ProceduralFrustum : MonoBehaviour {
             };
         #endregion
 
-
         mesh.vertices = vertices;
         mesh.uv = uv;
         mesh.triangles = triangles;
         mesh.colors = colors;
-
-        
+        for (int i = 0; i < 6; i++)
+        {
+            planes[i] = new Plane(transform.TransformPoint(mesh.vertices[mesh.triangles[i * 6]]), transform.TransformPoint(mesh.vertices[mesh.triangles[i * 6 + 1]]), transform.TransformPoint(mesh.vertices[mesh.triangles[i * 6 + 2]]));
+        }
     }
-    
+
 }

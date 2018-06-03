@@ -8,17 +8,22 @@ using UnityEngine.Rendering;
 public class ComputeBlend : MonoBehaviour {
 
     public EyeCollection eyeCollection;
+    [Range(0, 8)]
+    public int soloEyeIndex;
+    public bool soloEye;
     private List<Renderer> eyeRenderers;
+    private List<ProceduralFrustum> eyeFrustums;
     private Camera cam;
     
     private void Start()
     {
         cam = GetComponent<Camera>();
         eyeRenderers = eyeCollection.eyes.Select(e => e.GetComponentInChildren<Renderer>()).ToList();
+        eyeFrustums = eyeCollection.eyes.Select(e => e.GetComponentInChildren<ProceduralFrustum>()).ToList();
 
         InitRenderTextures();
         InitStencilMaterials();
-        InitComputeBuffers();
+        InitEyeDataBuffers();
         InitComputeShaders();
         InitCommandBuffers();
 
@@ -90,9 +95,9 @@ public class ComputeBlend : MonoBehaviour {
         public Vector3 eyeFwd;
     }
     /// <summary>
-    /// Declares a compute buffer to pass Eye world space positions to our compute blend shader.
+    /// Declares a compute buffer to pass static Eye data to our compute blend shader.
     /// </summary>
-    void InitComputeBuffers()
+    void InitEyeDataBuffers()
     {
         EyeData[] eyeDataArray = new EyeData[eyeRenderers.Count];
         for (int i = 0; i < eyeDataArray.Length; i++)
@@ -140,15 +145,17 @@ public class ComputeBlend : MonoBehaviour {
         /////////////////////////////////////
         cmdBufferBeforeOpaque = new CommandBuffer();
         cmdBufferBeforeOpaque.name = "BeforeOpaque";
+        cmdBufferBeforeOpaque.ClearRenderTarget(true, true, Color.clear);
         for (int i = 0; i < eyeRenderers.Count; i++)
         {
             // Draw hit pass (pass 0) to hitTex
             cmdBufferBeforeOpaque.SetRenderTarget(hitTex, 0, CubemapFace.Unknown, i);
             cmdBufferBeforeOpaque.ClearRenderTarget(true, true, Color.clear);
             // Draw low res raytrace hit to hitTex
-            cmdBufferBeforeOpaque.DrawRenderer(eyeRenderers[i], eyeRenderers[i].sharedMaterial, 0, 2);
             cmdBufferBeforeOpaque.DrawRenderer(eyeRenderers[i], eyeRenderers[i].sharedMaterial, 0, 0);
+
         }
+
         // Dispatch compute shader to compute blendTex from hitTex
         cmdBufferBeforeOpaque.DispatchCompute(computeShader, BlendKernel, blendTexRes.x, blendTexRes.y, 1);
         cam.AddCommandBuffer(CameraEvent.BeforeForwardOpaque, cmdBufferBeforeOpaque);
@@ -158,15 +165,18 @@ public class ComputeBlend : MonoBehaviour {
         /////////////////////////////////////
         cmdBufferAfterEverything = new CommandBuffer();
         cmdBufferAfterEverything.name = "AfterEverything";
+
         for (int i = 0; i < eyeRenderers.Count; i++)
-        {
+        { 
+            //cmdBufferAfterEverything.ClearRenderTarget(true, true, Color.clear);
             cmdBufferAfterEverything.Blit(BuiltinRenderTextureType.CurrentActive, BuiltinRenderTextureType.CurrentActive, stencilClearMat);
             // Blit stencilMat to screen for each Eye
             cmdBufferAfterEverything.SetGlobalInt("_WriteToStencilLayer", i);
             cmdBufferAfterEverything.Blit(BuiltinRenderTextureType.CurrentActive, BuiltinRenderTextureType.CurrentActive, writeToStencilMat);
             // Draw high res texture hit
-            cmdBufferAfterEverything.DrawRenderer(eyeRenderers[i], eyeRenderers[i].sharedMaterial, 0, 3);
             cmdBufferAfterEverything.DrawRenderer(eyeRenderers[i], eyeRenderers[i].sharedMaterial, 0, 1);
+            
+
         }
         cam.AddCommandBuffer(CameraEvent.AfterEverything, cmdBufferAfterEverything);
     }
@@ -176,8 +186,87 @@ public class ComputeBlend : MonoBehaviour {
     /////////////////////////////////////
     private void OnPreRender()
     {
+        ComputeInitialBlendWeights();
         computeShader.SetVector("_camPos", Camera.current.transform.position);
+        computeShader.SetVector("_camFwd", Camera.current.transform.forward);
+        computeShader.SetInt("_soloEyeIndex", soloEyeIndex);
+        computeShader.SetBool("_soloEye", soloEye);
+        computeShader.SetBuffer(BlendKernel, "eyeBlendBuffer", eyeBlendBuffer);
+
+        //Debug.Log(eyeFrustums[0].IsPointInsideFrustum(Camera.current.transform.position, 0.05f));
+        //// FUcK are you kidding... should be per eye
+        //if (eyeFrustums[0].IsPointInsideFrustum(Camera.current.transform.position, 0.05f))
+        //{
+        //    eyeFrustums[0].gameObject.GetComponent<SurfaceRaytrace>().EffectMaterial.shaderKeywords = new string[] { "CAMERA_INSIDE" };
+        //    eyeFrustums[0].gameObject.GetComponent<SurfaceRaytrace>().EffectMaterial.SetOverrideTag("Cull", "Front");
+            
+        //}
+        //else
+        //{
+        //    eyeFrustums[0].gameObject.GetComponent<SurfaceRaytrace>().EffectMaterial.shaderKeywords = new string[] { "" };
+        //    eyeFrustums[0].gameObject.GetComponent<SurfaceRaytrace>().EffectMaterial.SetOverrideTag("Cull", "Back");
+
+        //}
+
     }
+
+    
+    private ComputeBuffer eyeBlendBuffer;
+    void ComputeInitialBlendWeights()
+    {
+        int blend_N_eyes = Mathf.Min(3, eyeRenderers.Count);
+
+        float[] eyeBlendArray = new float[eyeRenderers.Count];
+        List<float> angDiff = new List<float>();
+        Dictionary<int, float> indexedAngDiff = new Dictionary<int, float>();
+
+
+        for (int i = 0; i < eyeRenderers.Count; i++)
+        {
+            eyeBlendArray[i] = 0;
+            angDiff.Add((Vector3.Dot(eyeRenderers[i].gameObject.transform.forward, Camera.current.transform.forward) + 1)/2.0f);
+            indexedAngDiff.Add(i, angDiff[i]);
+        }
+
+
+        var sortedAngDiff = indexedAngDiff.ToList();
+        sortedAngDiff.Sort((pair1, pair2) => pair1.Value.CompareTo(pair2.Value));
+        sortedAngDiff.Reverse();
+
+        float thresh = sortedAngDiff[blend_N_eyes - 1].Value;
+        List<float> angBlend = new List<float>();
+        float angBlendSum =0;
+        for (int i = 0; i < blend_N_eyes; i++)
+        {
+            angBlend.Add(Mathf.Max(0, 1 - (1 - angDiff[sortedAngDiff[i].Key]) / (1 - thresh)));
+            angBlendSum += angBlend[i];
+        }
+        for (int i = 0; i < blend_N_eyes; i++)
+        {
+            //Debug.Log("camera " + sortedAngDiff[i].Key + " has an angBlend of " + angBlend[i] + " and angBlendSum is "+angBlendSum);
+            angBlend[i] /= angBlendSum;
+            //Debug.Log("camera " + sortedAngDiff[i].Key + " has a normalized angBlend of " + angBlend[i]);
+            //Debug.Log("camera " + sortedAngDiff[i].Key + " has an angDiff of " + sortedAngDiff[i].Value);
+        }
+
+
+
+        for (int i = 0; i < blend_N_eyes; i++)
+        {
+            eyeBlendArray[sortedAngDiff[i].Key] = angBlend[i];
+        }
+
+
+        for (int i = 0; i < eyeRenderers.Count; i++)
+        {
+        }
+
+        eyeBlendBuffer = new ComputeBuffer(eyeRenderers.Count, sizeof(float), ComputeBufferType.Default);
+        eyeBlendBuffer.SetData(eyeBlendArray);
+
+    }
+
+
 
     /////////////////////////////////////
     // Cleanup

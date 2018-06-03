@@ -18,8 +18,10 @@ sampler2D _MainTex;
 sampler2D _zTex;
 UNITY_DECLARE_TEX2DARRAY(_BlendTex);
 int _DepthSlice;
+int _isInside;
 uniform float _farClip;
 uniform float _nearClip;
+float3 cam_OS;
 
 v2f vert(appdata v)
 {
@@ -65,37 +67,42 @@ float zConvert(float z) {
 // dir is objectspace ray (origin - cameraPosition)
 float4 surfaceRaytrace(float3 origin, float3 dir, uint max_steps, float orig_step_size) {
 	float step_size = orig_step_size;
-	float hitTolerance = orig_step_size * 0.8;
+	float hitTolerance = orig_step_size * 4;
 	float refineTolerance = orig_step_size * 0.1;
 	uint refine_steps = 8;
 	float3 hit_OS = origin;
 	float4 hit_CS = (0,0,0,0);
+	bool hitIsInsideFrustum = false;
+
 
 	[loop]
 	for (uint i = 0; i < max_steps; i++)
 	{
+
 		hit_CS = convertOStoCS(float4(hit_OS, 0));
 		float stored_depth = zConvert(tex2D(_zTex, hit_CS.xy).r);
 
+		if (hit_CS.x < 1.0 && hit_CS.y < 1.00 && hit_CS.x > 0 && hit_CS.y >  0) {
+			hitIsInsideFrustum = true;
+		}
 
-		if (hit_CS.x > 1 || hit_CS.y > 1 || hit_CS.x < -0.00001|| hit_CS.y <  -0.00001 || hit_CS.z > _farClip) {
+		if (hitIsInsideFrustum &&(hit_CS.x > 1.0 || hit_CS.y > 1.0 || hit_CS.x < -0.00 || hit_CS.y < -0.00))
+		{
 			break;
 		}
 
-
-		if (hit_CS.z >= (stored_depth - hitTolerance) && hit_CS.z <= (stored_depth + hitTolerance)) {
+		if (hit_CS.z >= (stored_depth - hitTolerance * hit_CS.z) && hit_CS.z <= (stored_depth + hitTolerance * hit_CS.z)) {
 			[loop]
 			for (uint j = 0; j < refine_steps; j++)
 			{
-
-				if (hit_CS.z >= (stored_depth - refineTolerance) && hit_CS.z <= (stored_depth + refineTolerance)) {
-					hit_CS.w = 1;
+				if (hit_CS.z >= (stored_depth - refineTolerance * hit_CS.z) && hit_CS.z <= (stored_depth + refineTolerance * hit_CS.z)) {
+					//hit_CS.w = 1;
+					hit_CS.w = distance(cam_OS, hit_OS);
 					break;
 				}
-				else if (hit_CS.z > stored_depth) {
-					hit_OS -= dir * step_size * hit_CS.z;
+				else if (hit_CS.z > stored_depth && hit_CS.z < stored_depth + hit_CS.z) {
 					step_size = step_size * 0.5;
-
+					hit_OS -= dir * step_size * hit_CS.z;
 				}
 				else {
 					hit_OS += dir * step_size * hit_CS.z;
@@ -104,18 +111,21 @@ float4 surfaceRaytrace(float3 origin, float3 dir, uint max_steps, float orig_ste
 				hit_CS = convertOStoCS(float4(hit_OS, 0));
 				stored_depth = zConvert(tex2D(_zTex, hit_CS.xy).r);
 			}
-			hit_CS.w = 1;
+			if (hit_CS.z >= (stored_depth - refineTolerance * hit_CS.z *2) && hit_CS.z <= (stored_depth + refineTolerance * hit_CS.z * 2))
+			{
+				hit_CS.w = distance(cam_OS, hit_OS);
+				//hit_CS.w = 1;
+			}
 		}
-		else if (hit_CS.z > stored_depth) {
-			step_size = step_size *0.5;
-			hit_OS -= dir * step_size * hit_CS.z;
-		}
+		
 		else {
 			step_size = orig_step_size;
 			hit_OS += dir * step_size * hit_CS.z;
 		}
 
 	}
+	//return float4(dir, 1);
+
 	return hit_CS;
 }
 

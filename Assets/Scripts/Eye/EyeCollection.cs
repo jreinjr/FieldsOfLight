@@ -14,10 +14,16 @@ public class EyeCollection : MonoBehaviour {
 
     bool projectorsEnabled = false;
 
-    private void Start()
+    private void Awake()
     {
         eyes = new List<Eye>();
         CheckEyeCount();
+    }
+
+    private void Start()
+    {
+        
+
     }
 
     private void Update()
