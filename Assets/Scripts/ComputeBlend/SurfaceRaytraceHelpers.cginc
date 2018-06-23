@@ -67,64 +67,61 @@ float zConvert(float z) {
 // dir is objectspace ray (origin - cameraPosition)
 float4 surfaceRaytrace(float3 origin, float3 dir, uint max_steps, float orig_step_size) {
 	float step_size = orig_step_size;
-	float hitTolerance = orig_step_size * 4;
-	float refineTolerance = orig_step_size * 0.1;
-	uint refine_steps = 8;
+	float hitTolerance = orig_step_size * .1;
+	float refineTolerance = orig_step_size * 4;
+	float max_refine_steps = 8;
+	float current_refine_step = 0;
+	float refine = 0;
 	float3 hit_OS = origin;
+	float3 savedPos = hit_OS;
 	float4 hit_CS = (0,0,0,0);
 	bool hitIsInsideFrustum = false;
-
+	float stepDir = 1;
+	float stored_depth = 0;
+	float depthDiff = 0;
 
 	[loop]
-	for (uint i = 0; i < max_steps; i++)
+	for (uint i = 0; i < max_steps && hit_CS.w == 0; i++)
 	{
-
 		hit_CS = convertOStoCS(float4(hit_OS, 0));
-		float stored_depth = zConvert(tex2D(_zTex, hit_CS.xy).r);
 
 		if (hit_CS.x < 1.0 && hit_CS.y < 1.00 && hit_CS.x > 0 && hit_CS.y >  0) {
 			hitIsInsideFrustum = true;
 		}
 
-		if (hitIsInsideFrustum &&(hit_CS.x > 1.0 || hit_CS.y > 1.0 || hit_CS.x < -0.00 || hit_CS.y < -0.00))
+		if (hitIsInsideFrustum && (hit_CS.x > 1.0 || hit_CS.y > 1.0 || hit_CS.x < -0.00 || hit_CS.y < -0.00))
 		{
 			break;
 		}
 
-		if (hit_CS.z >= (stored_depth - hitTolerance * hit_CS.z) && hit_CS.z <= (stored_depth + hitTolerance * hit_CS.z)) {
-			[loop]
-			for (uint j = 0; j < refine_steps; j++)
-			{
-				if (hit_CS.z >= (stored_depth - refineTolerance * hit_CS.z) && hit_CS.z <= (stored_depth + refineTolerance * hit_CS.z)) {
-					//hit_CS.w = 1;
-					hit_CS.w = distance(cam_OS, hit_OS);
-					break;
-				}
-				else if (hit_CS.z > stored_depth && hit_CS.z < stored_depth + hit_CS.z) {
-					step_size = step_size * 0.5;
-					hit_OS -= dir * step_size * hit_CS.z;
-				}
-				else {
-					hit_OS += dir * step_size * hit_CS.z;
+		stored_depth = zConvert(tex2D(_zTex, hit_CS.xy).r);
 
-				}
-				hit_CS = convertOStoCS(float4(hit_OS, 0));
-				stored_depth = zConvert(tex2D(_zTex, hit_CS.xy).r);
-			}
-			if (hit_CS.z >= (stored_depth - refineTolerance * hit_CS.z *2) && hit_CS.z <= (stored_depth + refineTolerance * hit_CS.z * 2))
-			{
-				hit_CS.w = distance(cam_OS, hit_OS);
-				//hit_CS.w = 1;
-			}
-		}
+		depthDiff = abs(stored_depth - hit_CS.z);
+
+		// If depthDiff is within hitTolerance, set hit_CS.w to ray length.
+		// This will exit loop on next execution.
+		hit_CS.w = distance(cam_OS, hit_OS) * step(depthDiff, hitTolerance * hit_CS.z);
+		// If depthDiff is within refineTolerance, set refine to 1.
+		refine = step(depthDiff, refineTolerance * hit_CS.z);
+		// However, if we have refined max_refine_steps times, quit refining.
+		refine *= step(current_refine_step, max_refine_steps);
+		// If refine is 1, increment current_refine_step.
+		current_refine_step = lerp(0, current_refine_step + 1, refine);
+		// If we have quit refining, set out position to last saved position.
+		//hit_OS = lerp(savedPos, hit_OS, refine);
+
+		// While refine is 1, stepDir is in the direction of stored_depth.
+		// Otherwise, we always march forward.
+		stepDir = lerp(1, sign(stored_depth - hit_CS.z), refine);
+		// During each refine step, step_size halves.
+		step_size = lerp(orig_step_size, step_size * 0.5, refine);
+
+		hit_OS += dir * step_size * stepDir * hit_CS.z;
+
+		// While refine is 1, save the position we were at before refining
+		//savedPos = lerp(hit_OS, savedPos, refine);
 		
-		else {
-			step_size = orig_step_size;
-			hit_OS += dir * step_size * hit_CS.z;
-		}
-
 	}
-	//return float4(dir, 1);
 
 	return hit_CS;
 }

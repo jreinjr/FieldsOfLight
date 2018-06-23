@@ -44,7 +44,9 @@ public class ComputeBlend : MonoBehaviour {
     /////////////////////////////////////
     private RenderTexture hitTex;
     private RenderTexture blendTex;
-    private Vector2Int hitTexRes = new Vector2Int(256, 256);
+    private Vector2Int hitTexRes = new Vector2Int(256 
+        
+        , 256);
     private Vector2Int blendTexRes = new Vector2Int(256, 256);
     /// <summary>
     /// Declares array textures hitTex and blendTex.

@@ -60,8 +60,8 @@ void Blend(uint3 id : SV_DispatchThreadID, uint index : SV_GroupIndex)
 
 	float normalDiff = (dot(eye_ray_WS, 1-normal_WS) + 1) / 2;
 
-	//float angDiff = (dot(eye_ray_WS, cam_ray_WS) + 1) / 2;
-	float angDiff = (dot(eyeDataBuffer[index].fwd, _camFwd) + 1) / 2;
+	float angDiff = (dot(eye_ray_WS, cam_ray_WS) + 1) / 2;
+	//float angDiff = (dot(eyeDataBuffer[index].fwd, _camFwd) + 1) / 2;
 	float resDiff = min(1, distance(hit_WS.xyz, _camPos)/ distance(hit_WS.xyz, eyeDataBuffer[index].pos));
 
 	GroupMemoryBarrierWithGroupSync();
@@ -183,6 +183,7 @@ void Blend(uint3 id : SV_DispatchThreadID, uint index : SV_GroupIndex)
 	else
 	{
 		blendTex[id.xyz] = float4(normalizedAngBlend, normalizedAngBlend, 0, 0);
+		//blendTex[id.xyz] = float4(eyeBlendBuffer[index], eyeBlendBuffer[index], 0, 0);
 	}
 
 	/*blendTex[id.xyz] = float4(
