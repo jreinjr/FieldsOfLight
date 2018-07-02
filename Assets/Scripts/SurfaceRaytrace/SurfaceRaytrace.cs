@@ -12,6 +12,8 @@ public class SurfaceRaytrace : MonoBehaviour {
     {
         get
         {
+            _EffectMaterial = GetComponent<Renderer>().material;
+
             if (!_EffectMaterial && _EffectShader)
             {
                 _EffectMaterial = new Material(_EffectShader);

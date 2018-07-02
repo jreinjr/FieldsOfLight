@@ -220,7 +220,7 @@ Prefab:
         type: 2}
       propertyPath: m_Materials.Array.data[0]
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 2100000, guid: 4174e35731b03bb40b3cadd5dd64a423, type: 2}
     - target: {fileID: 23511784626417906, guid: c2b727eff489b774e88ce7bfa97d5a98,
         type: 2}
       propertyPath: m_Materials.Array.data[0]
@@ -1647,7 +1647,7 @@ MeshCollider:
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 1027439975}
   m_Material: {fileID: 0}
-  m_IsTrigger: 0
+  m_IsTrigger: 1
   m_Enabled: 1
   serializedVersion: 3
   m_Convex: 1

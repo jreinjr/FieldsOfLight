@@ -2,10 +2,9 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+[ExecuteInEditMode]
 [RequireComponent(typeof(MeshFilter))]
 public class ProceduralFrustum : MonoBehaviour {
-
-
 
     public float fov;
     public float aspect;
@@ -44,7 +43,7 @@ public class ProceduralFrustum : MonoBehaviour {
 
     private void OnValidate()
     {
-        //BuildMesh();
+        BuildMesh();
     }
     
     void BuildMesh()
