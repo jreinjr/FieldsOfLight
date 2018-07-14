@@ -17,6 +17,7 @@ struct v2f
 sampler2D _MainTex;
 float4 _MainTex_ST;
 sampler2D _zTex;
+float4 _zTex_ST;
 UNITY_DECLARE_TEX2DARRAY(_BlendTex);
 int _DepthSlice;
 int _isInside;
@@ -95,9 +96,8 @@ float4 surfaceRaytrace(float3 origin, float3 dir, uint max_steps, float orig_ste
 			break;
 		}
 
-		float2 rgb_uv = TRANSFORM_TEX(hit_CS.xy, _MainTex);
-
-		stored_depth = zConvert(tex2D(_zTex, rgb_uv).r);
+		float2 z_uv = TRANSFORM_TEX(hit_CS.xy, _zTex);
+		stored_depth = zConvert(tex2D(_zTex, z_uv).r);
 
 		depthDiff = abs(stored_depth - hit_CS.z);
 

@@ -3,8 +3,13 @@
 
 	Properties
 	{
-		_MainTex ("Texture", 2D) = "white" {}
-		_StencilTex("Texture", 2D) = "white" {}
+		[Toggle] _SeparateRGBZ("Separate RGB and Z textures", Int) = 0
+		_RGBTex("RGB Texture", 2D) = "white" {}
+		_ZTex("Z Texture", 2D) = "black" {}
+		[Toggle] _StencilEnabled("Stencil", Int) = 0
+		_StencilTex("Stencil Texture", 2D) = "white" {}
+		[Toggle] _BlendEnabled("Blend", Int) = 0
+		_BlendTex("Blend Texture", 2D) = "white" {}
 	}
 	SubShader
 	{
@@ -28,7 +33,7 @@
 				fixed4 col = (0,0,0,0);
 				#if PROXY_ON
 				float2 screen_uv = i.vertex.xy / _ScreenParams.xy;
-				screen_uv = TRANSFORM_TEX(screen_uv, _MainTex);
+				screen_uv = TRANSFORM_TEX(screen_uv, _RGBTex);
 				col = fixed4(screen_uv, 0, 1);
 				#endif
 				return col;
@@ -54,6 +59,7 @@
 			#pragma fragment frag
 			#pragma shader_feature STENCIL_ON
 			#include "RaytraceMaterialHelpers.cginc"
+
 
 			fixed4 frag(v2f i) : SV_Target
 			{
@@ -92,9 +98,9 @@
 			fixed4 frag(v2f i) : SV_Target
 			{
 				float2 screen_uv = i.vertex.xy / _ScreenParams.xy;
-				screen_uv = TRANSFORM_TEX(screen_uv, _MainTex);
+				screen_uv = TRANSFORM_TEX(screen_uv, _RGBTex);
 
-				fixed4 col = tex2D(_MainTex, screen_uv);
+				fixed4 col = tex2D(_RGBTex, screen_uv);
 				return col;
 			}
 			ENDCG

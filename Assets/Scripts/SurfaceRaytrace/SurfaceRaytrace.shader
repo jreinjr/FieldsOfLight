@@ -2,8 +2,9 @@
 {
 	Properties
 	{
-		_MainTex ("Texture", 2D) = "white" {}
-		_BlendTex("Texture", 2DArray) = "white" {}
+		_MainTex ("RGB Texture", 2D) = "white" {}
+		_zTex("Z Texture", 2D) = "black" {}
+		_BlendTex("Blend Texture", 2DArray) = "white" {}
 		_DepthSlice("Depth Slice", Int) = 0
 		_Cull("_Cull", Float) = 0
 	}
@@ -98,7 +99,8 @@
 				origin = cam_OS;
 				#endif
 				float4 hit_CS = surfaceRaytrace(origin, ray_OS, 120, 0.05);
-				hitCol.xyz = tex2D(_MainTex, hit_CS.xy);
+				float2 rgb_uv = TRANSFORM_TEX(hit_CS.xy, _MainTex);
+				hitCol.xyz = tex2D(_MainTex, rgb_uv);
 				
 				//hitCol.w = hit_CS.w;
 				// _BlendTex a is stencil

@@ -7,11 +7,17 @@
 #pragma vertex vert
 #pragma fragment frag
 
-sampler2D _MainTex;
-float4 _MainTex_ST;
+sampler2D _RGBTex;
+float4 _RGBTex_ST;
+
+sampler2D _ZTex;
+float4 _ZTex_ST;
 
 sampler2D _StencilTex;
 float4 _StencilTex_ST;
+
+sampler2D _BlendTex;
+float4 _BlendTex_ST;
 
 struct appdata
 {
