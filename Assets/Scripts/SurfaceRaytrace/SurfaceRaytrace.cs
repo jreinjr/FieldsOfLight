@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
+using RenderHeads.Media.AVProVideo;
 
 public class SurfaceRaytrace : MonoBehaviour {
 
@@ -46,12 +47,22 @@ public class SurfaceRaytrace : MonoBehaviour {
     public Texture rgb_Tex;
     public Texture z_Tex;
 
+    public MediaPlayer mp;
+
 	// Use this for initialization
 	void Start () {
+
+        Invoke("Test", 2);
         frustum = GetComponent<ProceduralFrustum>();
         frustrumPerspective = new Matrix4x4();
         //eyeCollection = transform.parent.GetComponentInParent<EyeCollection>();
         Renderer.material = EffectMaterial;
+    }
+
+    void Test()
+    {
+        rgb_Tex = mp.TextureProducer.GetTexture();
+        z_Tex = mp.TextureProducer.GetTexture();
     }
 
     public void RefreshTextures()
