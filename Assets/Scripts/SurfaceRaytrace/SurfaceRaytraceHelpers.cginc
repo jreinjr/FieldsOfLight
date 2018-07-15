@@ -69,7 +69,7 @@ float zConvert(float z) {
 // dir is objectspace ray (origin - cameraPosition)
 float4 surfaceRaytrace(float3 origin, float3 dir, uint max_steps, float orig_step_size) {
 	float step_size = orig_step_size;
-	float hitTolerance = orig_step_size * .1;
+	float hitTolerance = orig_step_size * .01;
 	float refineTolerance = orig_step_size * 4;
 	float max_refine_steps = 8;
 	float current_refine_step = 0;
